@@ -1,4 +1,5 @@
 pts
+dist/
 venv/
 *.egg-info
 *.pyc

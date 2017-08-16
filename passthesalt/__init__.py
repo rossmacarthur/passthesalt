@@ -7,6 +7,9 @@ import pyperclip
 import subprocess
 
 
+__version__ = '1.0.0'
+
+
 def passlify(bytes):
     """
     Create a password from a byte list.
@@ -109,6 +112,7 @@ class PassTheSalt:
         self.config = dict()
         self.labels = dict()
         self.generatable = dict()
+        self.encrypted = None
 
     def initialize(self, owner, master_password=None):
         self.config['owner'] = owner
@@ -129,9 +133,8 @@ class PassTheSalt:
         else:
             return True
 
-    @property
-    def as_dict(self):
-        return vars(self)
+    def to_dict(self):
+        return {k: v for k, v in vars(self).items() if v}
 
     def load(self, path):
         with open(path, 'r') as f:
@@ -142,53 +145,52 @@ class PassTheSalt:
 
     def save(self, path):
         with open(path, 'w') as f:
-            json.dump(self.as_dict, f, indent=2)
+            json.dump(self.to_dict(), f, indent=2)
 
     def exists(self, label):
         return label in self.labels
 
     def get(self, label, master_password):
         master_key = self.master_key(master_password)
-
         info = self.labels[label]
         if info['type'] == 'generatable':
             return generate(label + '|' + self.generatable[label], master_key)
         elif info['type'] == 'encrypted':
             return decrypt(self.encrypted, master_key)[label]
 
-    def store_generatable(self, label, salt):
+    def _store(self, label, type_):
         self.labels[label] = {
-            'type': 'generatable',
+            'type': type_,
             'modified': datetime.date.today().strftime("%Y%m%d")
         }
+
+    def _remove(self, label):
+        del self.labels[label]
+
+    def store_generatable(self, label, salt):
+        self._store(label, 'generatable')
         self.generatable[label] = salt
 
     def remove_generatable(self, label):
-        del self.labels[label]
+        self._remove(label)
         del self.generatable[label]
 
     def store_encrypted(self, label, secret, master_password):
         master_key = self.master_key(master_password)
-
-        if hasattr(self, 'encrypted'):
+        if self.encrypted is not None:
             decrypted = decrypt(self.encrypted, master_key)
         else:
             decrypted = dict()
-
-        self.labels[label] = {
-            'type': 'encrypted',
-            'modified': datetime.date.today().strftime("%Y%m%d")
-        }
+        self._store(label, 'encrypted')
         decrypted[label] = secret
-
         self.encrypted = encrypt(decrypted, master_key)
 
     def remove_encrypted(self, label, master_password):
         master_key = self.master_key(master_password)
-
         decrypted = decrypt(self.encrypted, master_key)
-
-        del self.labels[label]
+        self._remove(label)
         del decrypted[label]
-
-        self.encrypted = encrypt(decrypted, master_key)
+        if not decrypted:
+            self.encrypted = None
+        else:
+            self.encrypted = encrypt(decrypted, master_key)

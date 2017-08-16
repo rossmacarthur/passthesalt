@@ -35,6 +35,7 @@ def get_master_password(pts):
 
 
 @click.group(context_settings=dict(help_option_names=['-h', '--help']))
+@click.version_option(prog_name='passthesalt', message='%(prog)s %(version)s')
 @click.pass_context
 def cli(ctx):
     """
@@ -139,8 +140,8 @@ def pts_get(ctx, label, salt, clipboard):
 
 
 @cli.command('ls')
-@click.option('--verbose', '-v', count=True, help='More information')
-@click.option('--quiet', '-q', is_flag=True, help='Do not print anything if no passwords')
+@click.option('--verbose', '-v', count=True, help='More information.')
+@click.option('--quiet', '-q', is_flag=True, help='Do not print anything if no passwords.')
 @click.pass_context
 def pts_list(ctx, verbose, quiet):
     """
@@ -154,7 +155,7 @@ def pts_list(ctx, verbose, quiet):
     else:
         col = max(len(label) for label in pts.labels) + 4
 
-        for label in pts.labels:
+        for label in sorted(pts.labels):
             if verbose > 1 and label in pts.generatable:
                 click.echo('{:<{col}}{:<{col_}}{}'.format(
                     label,
