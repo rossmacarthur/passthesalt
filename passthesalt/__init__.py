@@ -5,6 +5,7 @@ import json
 import os
 import pyperclip
 import subprocess
+import sys
 
 
 __version__ = '1.0.0'
@@ -102,7 +103,7 @@ def to_clipboard(text, timeout=None):
     """
     pyperclip.copy(text)
     if timeout:
-        command = 'sleep {} && python -c "import pyperclip;pyperclip.copy(\'\');"'.format(timeout)
+        command = 'sleep {} && {} -c "import pyperclip;pyperclip.copy(\'\');"'.format(timeout, sys.executable)
         subprocess.Popen(command, stdin=subprocess.PIPE, shell=True)
 
 

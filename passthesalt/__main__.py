@@ -1,7 +1,7 @@
 import click
 import os
 import re
-from passthesalt import PassTheSalt, to_clipboard, generate
+from passthesalt import PassTheSalt, to_clipboard, generate, __version__
 
 
 PATH = os.path.expanduser('~/.passthesalt')
@@ -35,7 +35,7 @@ def get_master_password(pts):
 
 
 @click.group(context_settings=dict(help_option_names=['-h', '--help']))
-@click.version_option(prog_name='passthesalt', message='%(prog)s %(version)s')
+@click.version_option(__version__, '-v', '--version', prog_name='passthesalt', message='%(prog)s %(version)s')
 @click.pass_context
 def cli(ctx):
     """
