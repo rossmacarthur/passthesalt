@@ -36,8 +36,8 @@ install_requires = [
 
 entry_points = {
     'console_scripts': [
-        'passthesalt=passthesalt.__main__:cli',
-        'pts=passthesalt.__main__:cli'
+        'pts=passthesalt.__main__:cli',
+        'passthesalt=passthesalt.__main__:cli'
     ]
 }
 
@@ -47,20 +47,26 @@ setup(
     version=version,
     install_requires=install_requires,
     entry_points=entry_points,
-    python_requires='>=3',
-    description='A deterministic password generation and password storage system.',
+    python_requires='>=2.7',
+    description='Deterministic password generation and password storage.',
     long_description=long_description,
     author='Ross MacArthur',
     author_email='macarthur.ross@gmail.com',
     license='MIT',
-    url='https://github.com/rossmacarthur/passthesalt',
-    download_url='https://github.com/rossmacarthur/passthesalt/archive/{}.tar.gz'.format(version),
+    url='https://github.com/spaceblanket/passthesalt-cli',
+    download_url='https://github.com/spaceblanket/passthesalt-cli/archive/{}.tar.gz'.format(version),
     keywords='password manager pbkdf2',
     classifiers=[
         'Development Status :: 4 - Beta',
         'Environment :: Console',
         'License :: OSI Approved :: MIT License',
         'Operating System :: OS Independent',
-        'Programming Language :: Python :: 3 :: Only'
+        'Programming Language :: Python',
+        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.3',
+        'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6'
     ]
 )

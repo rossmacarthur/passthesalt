@@ -1,7 +1,7 @@
 Pass the Salt
 =============
 
-Pass the Salt is a deterministic password generation and password storage system.
+Deterministic password generation and password storage.
 
 Install it using
 
