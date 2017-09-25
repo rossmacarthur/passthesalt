@@ -1,8 +1,10 @@
+from __future__ import absolute_import, division, print_function, unicode_literals
 import click
 import os
 import re
 from passthesalt import PassTheSalt, to_clipboard, generate, __version__
 
+click.disable_unicode_literals_warning = True
 
 PATH = os.path.expanduser('~/.passthesalt')
 

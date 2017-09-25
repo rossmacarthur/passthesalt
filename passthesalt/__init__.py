@@ -1,3 +1,5 @@
+from __future__ import absolute_import, division, print_function, unicode_literals
+from binascii import unhexlify, hexlify as hexlify_
 import Crypto.Cipher.AES
 import datetime
 import hashlib
@@ -11,6 +13,16 @@ import sys
 __version__ = '1.0.1'
 
 
+if sys.version_info < (3, 0):
+    def shiftlify(bytes, chars, shift=0):
+        bytes = [(ord(byte) + shift) % 256 for byte in bytes]
+        return ''.join(chars[byte % len(chars)] for byte in bytes)
+else:
+    def shiftlify(bytes, chars, shift=0):
+        bytes = [(byte + shift) % 256 for byte in bytes]
+        return ''.join(chars[byte % len(chars)] for byte in bytes)
+
+
 def passlify(bytes):
     """
     Create a password from a byte list.
@@ -21,7 +33,7 @@ def passlify(bytes):
     symbols = '!@#$%^&*_+-='
     chars = lower + upper + numbers + symbols
 
-    result = ''.join(chars[byte % len(chars)] for byte in bytes)
+    result = shiftlify(bytes, chars)
 
     # Attempt to make sure the password contains:
     #   a lowercase letter
@@ -32,8 +44,7 @@ def passlify(bytes):
         if any(c in lower for c in result) and any(c in upper for c in result) and \
            any(c in numbers for c in result) and any(c in symbols for c in result):
             break
-        bytes = [(byte + 1) % 256 for byte in bytes]
-        result = ''.join(chars[byte % len(chars)] for byte in bytes)
+        result = shiftlify(bytes, chars, shift=1)
 
     # Attempt to make sure the password starts with a letter
     for _ in range(len(result)):
@@ -44,6 +55,10 @@ def passlify(bytes):
     return result
 
 
+def hexlify(bytes):
+    return hexlify_(bytes).decode('utf-8')
+
+
 def encrypt(dictionary, master_key):
     """
     AES (CFB) encrypt 'dictionary' with 'master_key'.
@@ -51,7 +66,7 @@ def encrypt(dictionary, master_key):
     key = hashlib.sha1(master_key.encode()).hexdigest()[:32]
     iv = os.urandom(16)
     aes_obj = Crypto.Cipher.AES.new(key, Crypto.Cipher.AES.MODE_CFB, iv)
-    return (iv + aes_obj.encrypt(json.dumps(dictionary))).hex()
+    return hexlify(iv + aes_obj.encrypt(json.dumps(dictionary)))
 
 
 def decrypt(encoded, master_key):
@@ -59,9 +74,9 @@ def decrypt(encoded, master_key):
     Decrypt an AES (CFB) encrypted dictionary.
     """
     key = hashlib.sha1(master_key.encode()).hexdigest()[:32]
-    iv = bytes.fromhex(encoded[:32])
+    iv = unhexlify(encoded[:32])
     aes_obj = Crypto.Cipher.AES.new(key, Crypto.Cipher.AES.MODE_CFB, iv)
-    return json.loads(aes_obj.decrypt(bytes.fromhex(encoded[32:])))
+    return json.loads(aes_obj.decrypt(unhexlify(encoded[32:])))
 
 
 def pbkdf2_hash(password, salt=None):
@@ -71,7 +86,7 @@ def pbkdf2_hash(password, salt=None):
     if not salt:
         salt = os.urandom(16)
     else:
-        salt = bytes.fromhex(salt)
+        salt = unhexlify(salt)
 
     hash_ = hashlib.pbkdf2_hmac(
         'sha256',
@@ -81,7 +96,7 @@ def pbkdf2_hash(password, salt=None):
         dklen=20
     )
 
-    return salt.hex(), hash_.hex()
+    return hexlify(salt), hexlify(hash_)
 
 
 def generate(salt, master_key):
@@ -107,7 +122,7 @@ def to_clipboard(text, timeout=None):
         subprocess.Popen(command, stdin=subprocess.PIPE, shell=True)
 
 
-class PassTheSalt:
+class PassTheSalt(object):
 
     def __init__(self):
         self.config = dict()
