@@ -98,7 +98,7 @@ def pts_add(ctx, label, encrypt):
             username = click.prompt('Enter username')
             iteration = click.prompt('Enter iteration', default='0')
             salt = '|'.join([domain, username, iteration])
-            if click.confirm('Store "{}" as "{}"'.format(salt, label)):
+            if click.confirm('Store "{}" as "{}"'.format(salt, label), abort=True):
                 pts.store_generatable(label, salt)
 
         pts.save(PATH)
