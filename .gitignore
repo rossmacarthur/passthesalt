@@ -1,4 +1,5 @@
 pts
+build/
 dist/
 venv*/
 *.egg-info

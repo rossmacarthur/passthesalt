@@ -73,91 +73,108 @@ def cli(ctx):
 
 @cli.command('add')
 @click.argument('label', required=False)
-@click.option('--encrypt', '-e', is_flag=True, help='Store and encrypt a password.')
+@click.option('--encrypt', '-e', is_flag=True, help='Store and encrypt a secret.')
+@click.option('--clipboard/--no-clipboard', default=True,
+              help='Whether to copy secret to clipboard or print it out (default: clipboard).')
 @click.pass_context
-def pts_add(ctx, label, encrypt):
+def pts_add(ctx, label, encrypt, clipboard):
     """
-    Store a password.
+    Store secret.
 
-    LABEL is the unique label for the password.
+    LABEL is the unique label for the secret.
     """
     pts = ctx.obj
 
     if not label:
-        label = click.prompt('Enter label for new password')
+        label = click.prompt('Enter label for new secret')
 
     if pts.exists(label):
         click.echo('Label "{}" already exists.'.format(label))
-    else:
-        if encrypt:
-            secret = click.prompt('Enter password to store', confirmation_prompt=True, hide_input=True)
-            master_password = get_master_password(pts)
-            pts.store_encrypted(label, secret, master_password)
-        else:
-            domain = click.prompt('Enter domain name', type=URL)
-            username = click.prompt('Enter username')
-            iteration = click.prompt('Enter iteration', default='0')
-            salt = '|'.join([domain, username, iteration])
-            if click.confirm('Store "{}" as "{}"'.format(salt, label), abort=True):
-                pts.store_generatable(label, salt)
+        click.confirm('Update?', abort=True)
 
-        pts.save(PATH)
-        click.echo('Password stored!')
+    master_password = None
+    if encrypt:
+        secret = click.prompt('Enter secret to store', confirmation_prompt=True, hide_input=True)
+        master_password = get_master_password(pts)
+        pts.store_encrypted(label, secret, master_password)
+    else:
+        domain = click.prompt('Enter domain name', type=URL)
+        username = click.prompt('Enter username')
+        iteration = click.prompt('Enter iteration', default='0')
+        salt = '|'.join([domain, username, iteration])
+        if click.confirm('Store "{}" as "{}"'.format(salt, label), abort=True):
+            pts.store_generatable(label, salt)
+    pts.save(PATH)
+    click.echo('Secret stored!')
+
+    if click.confirm('\nRetrieve secret?'):
+        if not master_password:
+            master_password = get_master_password(pts)
+
+        secret = pts.get(label, master_password)
+        if clipboard:
+            to_clipboard(secret, timeout=10)
+            click.echo('Secret copied to clipboard.')
+        else:
+            click.echo(secret)
 
 
 @cli.command('get')
 @click.argument('label', required=False)
 @click.option('--salt', '-s',
-              help='Run the password generation algorithm on the given description.')
+              help='Run the secret generation algorithm on the given description.')
 @click.option('--clipboard/--no-clipboard', default=True,
               help='Whether to copy password to clipboard or print it out (default: clipboard).')
 @click.pass_context
 def pts_get(ctx, label, salt, clipboard):
     """
-    Retrieve a password.
+    Retrieve secret.
 
-    LABEL is the unique label of the password.
+    LABEL is the unique label of the secret.
     """
     pts = ctx.obj
 
     if salt:
         master_key = pts.master_key(get_master_password(pts))
-        password = generate(salt, master_key)
+        secret = generate(salt, master_key)
     else:
         if not label:
-            label = click.prompt('Enter label of password to retrieve')
+            label = click.prompt('Enter label of secret to retrieve')
 
         if pts.exists(label):
             master_password = get_master_password(pts)
-            password = pts.get(label, master_password)
+            secret = pts.get(label, master_password)
         else:
             click.echo('Label "{}" does not exist.'.format(label))
             raise click.Abort()
 
     if clipboard:
-        to_clipboard(password, timeout=10)
-        click.echo('Password copied to clipboard.')
+        to_clipboard(secret, timeout=10)
+        click.echo('Secret copied to clipboard.')
     else:
-        click.echo(password)
+        click.echo(secret)
 
 
 @cli.command('ls')
+@click.option('--type', '-t', type=click.Choice(['encrypted', 'generatable']))
 @click.option('--verbose', '-v', count=True, help='More information.')
-@click.option('--quiet', '-q', is_flag=True, help='Do not print anything if no passwords.')
+@click.option('--quiet', '-q', is_flag=True, help='Do not print anything if no secrets.')
 @click.pass_context
-def pts_list(ctx, verbose, quiet):
+def pts_list(ctx, type, verbose, quiet):
     """
-    List the passwords.
+    List the secrets.
     """
     pts = ctx.obj
 
     if len(pts.labels) == 0:
         if not quiet:
-            click.echo('No stored passwords.')
-    else:
-        col = max(len(label) for label in pts.labels) + 4
+            click.echo('No stored secrets.')
+        return
 
-        for label in sorted(pts.labels):
+    col = max(len(label) for label in pts.labels) + 4
+
+    for label in sorted(pts.labels):
+        if not type or type == pts.labels[label]['type']:
             if verbose > 1 and label in pts.generatable:
                 click.echo('{:<{col}}{:<{col_}}{}'.format(
                     label,
@@ -179,33 +196,66 @@ def pts_list(ctx, verbose, quiet):
 @cli.command('rm')
 @click.argument('label', required=False)
 @click.pass_context
-def pts_rm(ctx, label):
+def pts_remove(ctx, label):
     """
-    Remove a password.
+    Remove secret.
 
-    LABEL is the unique label of the password.
+    LABEL is the unique label of the secret.
     """
     pts = ctx.obj
 
     if not label:
-        label = click.prompt('Enter label of password to remove')
+        label = click.prompt('Enter label of secret to remove')
 
-    if pts.exists(label):
-        click.confirm('Are you sure you want to remove "{}"?'.format(label), abort=True)
-
-        info = pts.labels[label]
-
-        if info['type'] == 'generatable':
-            pts.remove_generatable(label)
-        elif info['type'] == 'encrypted':
-            master_password = get_master_password(pts)
-            pts.remove_encrypted(label, master_password)
-
-        pts.save(PATH)
-        click.echo('Successfully removed "{}"'.format(label))
-    else:
+    if not pts.exists(label):
         click.echo('Label "{}" does not exist.'.format(label))
         raise click.Abort()
+
+    click.confirm('Are you sure you want to remove "{}"?'.format(label), abort=True)
+
+    info = pts.labels[label]
+
+    if info['type'] == 'generatable':
+        pts.remove_generatable(label)
+    elif info['type'] == 'encrypted':
+        master_password = get_master_password(pts)
+        pts.remove_encrypted(label, master_password)
+
+    pts.save(PATH)
+    click.echo('Successfully removed "{}".'.format(label))
+
+
+@cli.command('mv')
+@click.argument('label')
+@click.argument('new-label')
+@click.pass_context
+def pts_move(ctx, label, new_label):
+    """
+    Rename secret.
+
+    LABEL is the unique name of the secret.
+    NEW-LABEL is a new unique name for the secret..
+    """
+    pts = ctx.obj
+
+    if not pts.exists(label):
+        click.echo('Label "{}" does not exist.'.format(label))
+        raise click.Abort()
+
+    if pts.exists(new_label):
+        click.echo('New label already exists.'.format(new_label))
+        raise click.Abort()
+
+    info = pts.labels[label]
+
+    if info['type'] == 'generatable':
+        pts.rename_generatable(label, new_label)
+    elif info['type'] == 'encrypted':
+        master_password = get_master_password(pts)
+        pts.rename_encrypted(label, new_label, master_password)
+
+    pts.save(PATH)
+    click.echo('Successfully renamed "{}" to "{}".'.format(label, new_label))
 
 
 if __name__ == '__main__':

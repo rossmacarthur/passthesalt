@@ -66,7 +66,7 @@ def encrypt(dictionary, master_key):
     key = hashlib.sha1(master_key.encode()).hexdigest()[:32]
     iv = os.urandom(16)
     aes_obj = Crypto.Cipher.AES.new(key, Crypto.Cipher.AES.MODE_CFB, iv)
-    return hexlify(iv + aes_obj.encrypt(json.dumps(dictionary)))
+    return hexlify(iv + aes_obj.encrypt(json.dumps(dictionary, sort_keys=True)))
 
 
 def decrypt(encoded, master_key):
@@ -161,7 +161,7 @@ class PassTheSalt(object):
 
     def save(self, path):
         with open(path, 'w') as f:
-            json.dump(self.to_dict(), f, indent=2)
+            json.dump(self.to_dict(), f, sort_keys=True, indent=2)
 
     def exists(self, label):
         return label in self.labels
@@ -170,7 +170,7 @@ class PassTheSalt(object):
         master_key = self.master_key(master_password)
         info = self.labels[label]
         if info['type'] == 'generatable':
-            return generate(label + '|' + self.generatable[label], master_key)
+            return generate(self.generatable[label], master_key)
         elif info['type'] == 'encrypted':
             return decrypt(self.encrypted, master_key)[label]
 
@@ -183,6 +183,9 @@ class PassTheSalt(object):
     def _remove(self, label):
         del self.labels[label]
 
+    def _rename(self, label, new_label):
+        self.labels[new_label] = self.labels.pop(label)
+
     def store_generatable(self, label, salt):
         self._store(label, 'generatable')
         self.generatable[label] = salt
@@ -190,6 +193,10 @@ class PassTheSalt(object):
     def remove_generatable(self, label):
         self._remove(label)
         del self.generatable[label]
+
+    def rename_generatable(self, label, new_label):
+        self._rename(label, new_label)
+        self.generatable[new_label] = self.generatable[label]
 
     def store_encrypted(self, label, secret, master_password):
         master_key = self.master_key(master_password)
@@ -210,3 +217,10 @@ class PassTheSalt(object):
             self.encrypted = None
         else:
             self.encrypted = encrypt(decrypted, master_key)
+
+    def rename_encrypted(self, label, new_label, master_password):
+        master_key = self.master_key(master_password)
+        decrypted = decrypt(self.encrypted, master_key)
+        self._rename(label, new_label)
+        decrypted[new_label] = decrypted.pop(label)
+        self.encrypted = encrypt(decrypted, master_key)
