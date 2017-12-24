@@ -107,7 +107,7 @@ def pts_add(ctx, label, encrypt, clipboard):
     pts.save(PATH)
     click.echo('Secret stored!')
 
-    if click.confirm('\nRetrieve secret?'):
+    if not encrypt and click.confirm('\nRetrieve secret?'):
         if not master_password:
             master_password = get_master_password(pts)
 
