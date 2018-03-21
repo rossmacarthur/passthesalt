@@ -102,14 +102,14 @@ def cli(ctx):
 @click.option('--encrypt', '-e', is_flag=True, help='Store and encrypt a secret.')
 @click.option('--clipboard/--no-clipboard', default=True,
               help='Whether to copy secret to clipboard or print it out (default: clipboard).')
-@click.pass_context
-def pts_add(ctx, label, encrypt, clipboard):
+@click.pass_obj
+def pts_add(obj, label, encrypt, clipboard):
     """
     Store secret.
 
     LABEL is the unique label for the secret.
     """
-    pts = ctx.obj['pts']
+    pts = obj['pts']
 
     if not label:
         label = click.prompt('Enter label for new secret')
@@ -151,14 +151,14 @@ def pts_add(ctx, label, encrypt, clipboard):
               help='Run the secret generation algorithm on the given description.')
 @click.option('--clipboard/--no-clipboard', default=True,
               help='Whether to copy password to clipboard or print it out (default: clipboard).')
-@click.pass_context
-def pts_get(ctx, label, salt, clipboard):
+@click.pass_obj
+def pts_get(obj, label, salt, clipboard):
     """
     Retrieve secret.
 
     LABEL is the unique label of the secret.
     """
-    pts = ctx.obj['pts']
+    pts = obj['pts']
 
     if salt:
         master_key = pts.master_key(get_master_password(pts))
@@ -185,12 +185,12 @@ def pts_get(ctx, label, salt, clipboard):
 @click.option('--type', '-t', type=click.Choice(['encrypted', 'generatable']))
 @click.option('--verbose', '-v', count=True, help='More information.')
 @click.option('--quiet', '-q', is_flag=True, help='Do not print anything if no secrets.')
-@click.pass_context
-def pts_list(ctx, type, verbose, quiet):
+@click.pass_obj
+def pts_list(obj, type, verbose, quiet):
     """
     List the secrets.
     """
-    pts = ctx.obj['pts']
+    pts = obj['pts']
 
     if len(pts.labels) == 0:
         if not quiet:
@@ -221,14 +221,14 @@ def pts_list(ctx, type, verbose, quiet):
 
 @cli.command('rm')
 @click.argument('label', required=False)
-@click.pass_context
-def pts_remove(ctx, label):
+@click.pass_obj
+def pts_remove(obj, label):
     """
     Remove secret.
 
     LABEL is the unique label of the secret.
     """
-    pts = ctx.obj['pts']
+    pts = obj['pts']
 
     if not label:
         label = click.prompt('Enter label of secret to remove')
@@ -254,15 +254,15 @@ def pts_remove(ctx, label):
 @cli.command('mv')
 @click.argument('label')
 @click.argument('new-label')
-@click.pass_context
-def pts_move(ctx, label, new_label):
+@click.pass_obj
+def pts_move(obj, label, new_label):
     """
     Rename secret.
 
     LABEL is the unique name of the secret.
     NEW-LABEL is a new unique name for the secret..
     """
-    pts = ctx.obj['pts']
+    pts = obj['pts']
 
     if not pts.exists(label):
         click.echo('Label "{}" does not exist.'.format(label))
@@ -286,13 +286,13 @@ def pts_move(ctx, label, new_label):
 
 @cli.command('push')
 @click.option('--force', '-f', is_flag=True, help='Ignore timestamp conflicts.')
-@click.pass_context
-def pts_push(ctx, force):
+@click.pass_obj
+def pts_push(obj, force):
     """
     Update remote store with local store.
     """
-    pts = ctx.obj['pts']
-    remote = ctx.obj['remote']
+    pts = obj['pts']
+    remote = obj['remote']
 
     for _ in range(2):
         try:
@@ -311,13 +311,13 @@ def pts_push(ctx, force):
 
 @cli.command('pull')
 @click.option('--force', '-f', is_flag=True, help='Ignore timestamp conflicts.')
-@click.pass_context
-def pts_pull(ctx, force):
+@click.pass_obj
+def pts_pull(obj, force):
     """
     Update local store with remote store.
     """
-    pts = ctx.obj['pts']
-    remote = ctx.obj['remote']
+    pts = obj['pts']
+    remote = obj['remote']
 
     for _ in range(2):
         try:
