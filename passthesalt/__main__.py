@@ -182,24 +182,27 @@ def pts_get(obj, label, salt, clipboard):
 
 
 @cli.command('ls')
+@click.argument('label', required=False)
 @click.option('--type', '-t', type=click.Choice(['encrypted', 'generatable']))
 @click.option('--verbose', '-v', count=True, help='More information.')
 @click.option('--quiet', '-q', is_flag=True, help='Do not print anything if no secrets.')
 @click.pass_obj
-def pts_list(obj, type, verbose, quiet):
+def pts_list(obj, label, type, verbose, quiet):
     """
     List the secrets.
     """
     pts = obj['pts']
 
-    if len(pts.labels) == 0:
+    subset = [l for l in pts.labels if not label or l.lower().startswith(label.lower())]
+
+    if len(subset) == 0:
         if not quiet:
             click.echo('No stored secrets.')
         return
 
-    col = max(len(label) for label in pts.labels) + 4
+    col = max(len(l) for l in subset) + 4
 
-    for label in sorted(pts.labels):
+    for label in sorted(subset):
         if not type or type == pts.labels[label]['type']:
             if verbose > 1 and label in pts.generatable:
                 click.echo('{:<{col}}{:<{col_}}{}'.format(
