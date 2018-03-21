@@ -1,11 +1,14 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 from binascii import unhexlify, hexlify as hexlify_
 import Crypto.Cipher.AES
+import base64
 import datetime
+import dateutil.parser
 import hashlib
 import json
 import os
 import pyperclip
+import requests
 import subprocess
 import sys
 
@@ -122,7 +125,116 @@ def to_clipboard(text, timeout=None):
         subprocess.Popen(command, stdin=subprocess.PIPE, shell=True)
 
 
-class PassTheSalt(object):
+class RemoteError(Exception):
+    pass
+
+
+class ConflictingTimestamps(RemoteError):
+    pass
+
+
+class UnauthorizedAccess(RemoteError):
+    pass
+
+
+class ServerError(RemoteError):
+    pass
+
+
+class File(object):
+
+    def to_dict(self):
+        d = {k: v for k, v in vars(self).items() if v}
+        if 'modified' in d:
+            d['modified'] = d['modified'].isoformat()
+        return d
+
+    def load(self, path):
+        with open(path, 'r') as f:
+            self.loads(json.load(f))
+        return self
+
+    def loads(self, data):
+        for key in data:
+            if key == 'modified':
+                value = dateutil.parser.parse(data[key])
+            else:
+                value = data[key]
+            setattr(self, key, value)
+        return self
+
+    def save(self, path):
+        with open(path, 'w') as f:
+            json.dump(self.to_dict(), f, sort_keys=True, indent=2)
+
+    def dumps(self, indent=None):
+        return json.dumps(self.to_dict(), sort_keys=True, indent=indent)
+
+    def encode(self):
+        return base64.b64encode(self.dumps().encode()).decode('ascii')
+
+    def decode(self, data):
+        return self.loads(json.loads(base64.b64decode(data.encode()).decode('utf-8')))
+
+    def touch(self):
+        self.modified = datetime.datetime.utcnow()
+
+
+class Remote(File):
+
+    def __init__(self):
+        self.remote = dict()
+
+    def initialize(self, url, token_url):
+        self.remote['url'] = url
+        self.remote['token_url'] = token_url
+
+    def request(self, verb, url=None, auth=None, data=None):
+        headers = {'Content-Type': 'application/json'}
+        if auth is None:
+            auth = requests.auth.HTTPBasicAuth(self.remote.get('token'), 'unused')
+        if url is None:
+            url = self.remote['url']
+
+        response = requests.request(verb, url, headers=headers, auth=auth, data=data)
+
+        if response.status_code == 401:
+            raise UnauthorizedAccess(response.json().get('message'))
+        elif response.status_code == 409:
+            raise ConflictingTimestamps(response.json().get('message'))
+        elif 500 > response.status_code >= 300:
+            raise RemoteError(response.json())
+        elif response.status_code >= 500:
+            raise ServerError(response.text)
+
+        return response.json()
+
+    def get(self):
+        data = self.request('GET')
+        pts = PassTheSalt().decode(data['value'])
+        modified = dateutil.parser.parse(data['modified'])
+        return pts, modified
+
+    def put(self, pts, force=False):
+        payload = {'value': pts.encode()}
+        if not force:
+            modifieds = list()
+            if hasattr(self, 'modified'):
+                modifieds.append(self.modified)
+            if hasattr(pts, 'modified'):
+                modifieds.append(pts.modified)
+            if modifieds:
+                payload['modified'] = max(modifieds).isoformat()
+        data = json.dumps(payload)
+        self.request('PUT', data=data)
+
+    def renew_token(self, name, password):
+        auth = requests.auth.HTTPBasicAuth(name, password)
+        data = self.request('GET', self.remote['token_url'], auth=auth)
+        self.remote['token'] = data['token']
+
+
+class PassTheSalt(File):
 
     def __init__(self):
         self.config = dict()
@@ -149,20 +261,6 @@ class PassTheSalt(object):
         else:
             return True
 
-    def to_dict(self):
-        return {k: v for k, v in vars(self).items() if v}
-
-    def load(self, path):
-        with open(path, 'r') as f:
-            data = json.load(f)
-
-        for key in data:
-            setattr(self, key, data[key])
-
-    def save(self, path):
-        with open(path, 'w') as f:
-            json.dump(self.to_dict(), f, sort_keys=True, indent=2)
-
     def exists(self, label):
         return label in self.labels
 
@@ -175,15 +273,18 @@ class PassTheSalt(object):
             return decrypt(self.encrypted, master_key)[label]
 
     def _store(self, label, type_):
+        self.touch()
         self.labels[label] = {
             'type': type_,
             'modified': datetime.date.today().strftime("%Y%m%d")
         }
 
     def _remove(self, label):
+        self.touch()
         del self.labels[label]
 
     def _rename(self, label, new_label):
+        self.touch()
         self.labels[new_label] = self.labels.pop(label)
 
     def store_generatable(self, label, salt):

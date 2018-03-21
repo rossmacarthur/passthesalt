@@ -2,11 +2,13 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import click
 import os
 import re
-from passthesalt import PassTheSalt, to_clipboard, generate, __version__
+from passthesalt import PassTheSalt, Remote, UnauthorizedAccess, ConflictingTimestamps, \
+                        to_clipboard, generate, __version__
 
 click.disable_unicode_literals_warning = True
 
 PATH = os.path.expanduser('~/.passthesalt')
+REMOTE = os.path.expanduser('~/.passthesalt.remote')
 
 
 class URLParamType(click.ParamType):
@@ -36,6 +38,14 @@ def get_master_password(pts):
     return master_password
 
 
+def renew_remote_token(remote):
+    click.echo('Unauthorized access. Need to renew token:')
+    name = click.prompt('Enter name')
+    password = click.prompt('Enter password', hide_input=True)
+    remote.renew_token(name, password)
+    remote.save(REMOTE)
+
+
 @click.group(context_settings=dict(help_option_names=['-h', '--help']))
 @click.version_option(__version__, '-v', '--version', prog_name='passthesalt', message='%(prog)s %(version)s')
 @click.pass_context
@@ -51,11 +61,12 @@ def cli(ctx):
     A deterministic password generation and password storage system.
     """
     pts = PassTheSalt()
+    remote = Remote()
 
     if os.path.isfile(PATH):
         pts.load(PATH)
     else:
-        click.echo('Initializing Pass the Salt ... ')
+        click.echo('Initializing Pass the Salt ...')
         owner = click.prompt('Please enter your name')
 
         if click.confirm('Use master password validation?'):
@@ -68,7 +79,22 @@ def cli(ctx):
         pts.save(PATH)
         click.echo('Successfully initialized Pass The Salt!\n')
 
-    ctx.obj = pts
+    if os.path.isfile(REMOTE):
+        remote = remote.load(REMOTE)
+    elif ctx.invoked_subcommand in ('push', 'pull'):
+        click.echo('Initializing remote ...')
+
+        url = click.prompt('Enter GET and PUT url')
+        token_url = click.prompt('Enter token renewal url')
+        remote.initialize(url, token_url)
+
+        remote.save(REMOTE)
+        click.echo('Successfully initialized remote config.')
+
+    ctx.obj = {
+        'pts': pts,
+        'remote': remote
+    }
 
 
 @cli.command('add')
@@ -83,7 +109,7 @@ def pts_add(ctx, label, encrypt, clipboard):
 
     LABEL is the unique label for the secret.
     """
-    pts = ctx.obj
+    pts = ctx.obj['pts']
 
     if not label:
         label = click.prompt('Enter label for new secret')
@@ -132,7 +158,7 @@ def pts_get(ctx, label, salt, clipboard):
 
     LABEL is the unique label of the secret.
     """
-    pts = ctx.obj
+    pts = ctx.obj['pts']
 
     if salt:
         master_key = pts.master_key(get_master_password(pts))
@@ -164,7 +190,7 @@ def pts_list(ctx, type, verbose, quiet):
     """
     List the secrets.
     """
-    pts = ctx.obj
+    pts = ctx.obj['pts']
 
     if len(pts.labels) == 0:
         if not quiet:
@@ -202,7 +228,7 @@ def pts_remove(ctx, label):
 
     LABEL is the unique label of the secret.
     """
-    pts = ctx.obj
+    pts = ctx.obj['pts']
 
     if not label:
         label = click.prompt('Enter label of secret to remove')
@@ -236,7 +262,7 @@ def pts_move(ctx, label, new_label):
     LABEL is the unique name of the secret.
     NEW-LABEL is a new unique name for the secret..
     """
-    pts = ctx.obj
+    pts = ctx.obj['pts']
 
     if not pts.exists(label):
         click.echo('Label "{}" does not exist.'.format(label))
@@ -256,6 +282,56 @@ def pts_move(ctx, label, new_label):
 
     pts.save(PATH)
     click.echo('Successfully renamed "{}" to "{}".'.format(label, new_label))
+
+
+@cli.command('push')
+@click.option('--force', '-f', is_flag=True, help='Ignore timestamp conflicts.')
+@click.pass_context
+def pts_push(ctx, force):
+    """
+    Update remote store with local store.
+    """
+    pts = ctx.obj['pts']
+    remote = ctx.obj['remote']
+
+    for _ in range(2):
+        try:
+            remote.put(pts, force=force)
+            break
+        except UnauthorizedAccess:
+            renew_remote_token(remote)
+        except ConflictingTimestamps:
+            click.echo('Timestamp conflict. The server has a newer version of the store. Use --force to override.')
+            raise click.Abort()
+
+    remote.touch()
+    remote.save(REMOTE)
+    click.echo('Successfully pushed to remote store.')
+
+
+@cli.command('pull')
+@click.option('--force', '-f', is_flag=True, help='Ignore timestamp conflicts.')
+@click.pass_context
+def pts_pull(ctx, force):
+    """
+    Update local store with remote store.
+    """
+    pts = ctx.obj['pts']
+    remote = ctx.obj['remote']
+
+    for _ in range(2):
+        try:
+            remote_pts, modified = remote.get()
+            break
+        except UnauthorizedAccess:
+            renew_remote_token(remote)
+
+    if force or (hasattr(pts, 'modified') and modified > pts.modified):
+        remote_pts.save(PATH)
+        click.echo('Successfully pulled remote store.')
+    else:
+        click.echo('Timestamp conflict. The local version is newer than the remote.')
+        raise click.Abort()
 
 
 if __name__ == '__main__':
