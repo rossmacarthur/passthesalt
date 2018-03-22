@@ -55,8 +55,8 @@ setup(
     author='Ross MacArthur',
     author_email='macarthur.ross@gmail.com',
     license='MIT',
-    url='https://github.com/spaceblanket/passthesalt-cli',
-    download_url='https://github.com/spaceblanket/passthesalt-cli/archive/{}.tar.gz'.format(version),
+    url='https://github.com/rossmacarthur/passthesalt',
+    download_url='https://github.com/rossmacarthur/passthesalt/archive/{}.tar.gz'.format(version),
     keywords='password manager pbkdf2',
     classifiers=[
         'Development Status :: 4 - Beta',
@@ -64,6 +64,7 @@ setup(
         'License :: OSI Approved :: MIT License',
         'Operating System :: OS Independent',
         'Programming Language :: Python',
+        'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.3',
