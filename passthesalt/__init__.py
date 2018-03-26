@@ -121,7 +121,8 @@ def to_clipboard(text, timeout=None):
     """
     pyperclip.copy(text)
     if timeout:
-        command = 'sleep {} && {} -c "import pyperclip;pyperclip.copy(\'\');"'.format(timeout, sys.executable)
+        command = 'sleep {} && {} -c "import pyperclip;pyperclip.copy(\'\');"' \
+                   .format(timeout, sys.executable)
         subprocess.Popen(command, stdin=subprocess.PIPE, shell=True)
 
 
@@ -151,8 +152,7 @@ class File(object):
 
     def load(self, path):
         with open(path, 'r') as f:
-            self.loads(json.load(f))
-        return self
+            return self.loads(json.load(f))
 
     def loads(self, data):
         for key in data:
@@ -272,10 +272,10 @@ class PassTheSalt(File):
         elif info['type'] == 'encrypted':
             return decrypt(self.encrypted, master_key)[label]
 
-    def _store(self, label, type_):
+    def _store(self, label, type):
         self.touch()
         self.labels[label] = {
-            'type': type_,
+            'type': type,
             'modified': datetime.date.today().strftime("%Y%m%d")
         }
 

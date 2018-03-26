@@ -106,7 +106,8 @@ def get_remote(remote):
 
 
 @click.group(context_settings=dict(help_option_names=['-h', '--help']))
-@click.version_option(__version__, '-v', '--version', prog_name='passthesalt', message='%(prog)s %(version)s')
+@click.version_option(__version__, '-v', '--version', prog_name='passthesalt',
+                      message='%(prog)s %(version)s')
 @click.pass_context
 def cli(ctx):
     """
@@ -336,7 +337,8 @@ def pts_push(obj, force):
         except UnauthorizedAccess:
             renew_remote_token(remote)
         except ConflictingTimestamps:
-            click.echo('Timestamp conflict. The server has a newer version of the store. Use --force to override.')
+            click.echo('Timestamp conflict. The server has a newer version of the store. '
+                       'Use --force to override.')
             raise click.Abort()
 
     remote.touch()
