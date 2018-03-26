@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 import click
+import copy
 import os
 import re
 from passthesalt import PassTheSalt, Remote, UnauthorizedAccess, ConflictingTimestamps, \
@@ -9,6 +10,56 @@ click.disable_unicode_literals_warning = True
 
 PATH = os.path.expanduser('~/.passthesalt')
 REMOTE = os.path.expanduser('~/.passthesalt.remote')
+
+
+def dict_diff(d1, d2):
+    if not isinstance(d1, dict):
+        return d1
+
+    diff = dict()
+
+    for key in d1:
+        if key not in d2:
+            diff[key] = d1[key]
+        elif d1[key] != d2[key]:
+            diff[key] = dict_diff(d1[key], d2[key])
+
+    return diff
+
+
+def pts_diff_(pts1, pts2):
+    return PassTheSalt().loads(
+        dict_diff(copy.deepcopy(pts1.to_dict()), copy.deepcopy(pts2.to_dict())))
+
+
+def pts_list_(pts, label=None, type=None, verbose=0, quiet=False):
+    subset = [l for l in pts.labels if not label or l.lower().startswith(label.lower())]
+
+    if len(subset) == 0:
+        if not quiet:
+            click.echo('No stored secrets.')
+        return
+
+    col = max(len(l) for l in subset) + 4
+
+    for label in sorted(subset):
+        if not type or type == pts.labels[label]['type']:
+            if verbose > 1 and label in pts.generatable:
+                click.echo('{:<{col}}{:<{col_}}{}'.format(
+                    label,
+                    'type: ' + pts.labels[label].get('type', 'generatable'),
+                    'salt: ' + pts.generatable[label],
+                    col=col,
+                    col_=20
+                ))
+            elif verbose > 0:
+                click.echo('{:<{col}}{}'.format(
+                    label,
+                    'type: ' + pts.labels[label].get('type', 'encrypted'),
+                    col=col
+                ))
+            else:
+                click.echo(label)
 
 
 class URLParamType(click.ParamType):
@@ -44,6 +95,14 @@ def renew_remote_token(remote):
     password = click.prompt('Enter password', hide_input=True)
     remote.renew_token(name, password)
     remote.save(REMOTE)
+
+
+def get_remote(remote):
+    for _ in range(2):
+        try:
+            return remote.get()
+        except UnauthorizedAccess:
+            renew_remote_token(remote)
 
 
 @click.group(context_settings=dict(help_option_names=['-h', '--help']))
@@ -192,34 +251,7 @@ def pts_list(obj, label, type, verbose, quiet):
     List the secrets.
     """
     pts = obj['pts']
-
-    subset = [l for l in pts.labels if not label or l.lower().startswith(label.lower())]
-
-    if len(subset) == 0:
-        if not quiet:
-            click.echo('No stored secrets.')
-        return
-
-    col = max(len(l) for l in subset) + 4
-
-    for label in sorted(subset):
-        if not type or type == pts.labels[label]['type']:
-            if verbose > 1 and label in pts.generatable:
-                click.echo('{:<{col}}{:<{col_}}{}'.format(
-                    label,
-                    'type: ' + pts.labels[label]['type'],
-                    'salt: ' + pts.generatable[label],
-                    col=col,
-                    col_=20
-                ))
-            elif verbose > 0:
-                click.echo('{:<{col}}{}'.format(
-                    label,
-                    'type: ' + pts.labels[label]['type'],
-                    col=col
-                ))
-            else:
-                click.echo(label)
+    pts_list_(pts, label, type, verbose, quiet)
 
 
 @cli.command('rm')
@@ -322,12 +354,7 @@ def pts_pull(obj, force):
     pts = obj['pts']
     remote = obj['remote']
 
-    for _ in range(2):
-        try:
-            remote_pts, modified = remote.get()
-            break
-        except UnauthorizedAccess:
-            renew_remote_token(remote)
+    remote_pts, modified = get_remote(remote)
 
     if force or (hasattr(pts, 'modified') and modified > pts.modified):
         remote_pts.save(PATH)
@@ -335,6 +362,37 @@ def pts_pull(obj, force):
     else:
         click.echo('Timestamp conflict. The local version is newer than the remote.')
         raise click.Abort()
+
+
+@cli.command('diff')
+@click.option('--filename', '-f', type=click.Path(exists=True, dir_okay=False))
+@click.option('--type', '-t', type=click.Choice(['encrypted', 'generatable']))
+@click.option('--verbose', '-v', count=True, help='More information.')
+@click.pass_obj
+def pts_diff(obj, filename, type, verbose):
+    """
+    Compare two stores.
+    """
+    pts = obj['pts']
+    remote = obj['remote']
+
+    if filename:
+        other_pts = PassTheSalt().load(filename)
+    else:
+        other_pts, _ = get_remote(remote)
+
+    other_has = pts_diff_(other_pts, pts)
+    if other_has.labels:
+        click.echo('The {} store has the following secrets:'.format(filename or 'remote'))
+        pts_list_(other_has, type=type, verbose=verbose)
+
+    local_has = pts_diff_(pts, other_pts)
+    if local_has.labels:
+        click.echo('The local store has the following secrets:')
+        pts_list_(local_has, type=type, verbose=verbose)
+
+    if other_has.labels or local_has.labels:
+        exit(1)
 
 
 if __name__ == '__main__':
