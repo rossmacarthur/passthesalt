@@ -8,8 +8,8 @@ from passthesalt import PassTheSalt, Remote, UnauthorizedAccess, ConflictingTime
 
 click.disable_unicode_literals_warning = True
 
-PATH = os.path.expanduser('~/.passthesalt')
-REMOTE = os.path.expanduser('~/.passthesalt.remote')
+DEFAULT_PATH = os.path.expanduser('~/.passthesalt')
+DEFAULT_REMOTE = os.path.expanduser('~/.passthesalt.remote')
 
 
 def dict_diff(d1, d2):
@@ -89,27 +89,31 @@ def get_master_password(pts):
     return master_password
 
 
-def renew_remote_token(remote):
+def renew_remote_token(remote, remote_path):
     click.echo('Unauthorized access. Need to renew token:')
     name = click.prompt('Enter name')
     password = click.prompt('Enter password', hide_input=True)
     remote.renew_token(name, password)
-    remote.save(REMOTE)
+    remote.save(remote_path)
 
 
-def get_remote(remote):
+def get_remote(remote, remote_path):
     for _ in range(2):
         try:
             return remote.get()
         except UnauthorizedAccess:
-            renew_remote_token(remote)
+            renew_remote_token(remote, remote_path)
 
 
 @click.group(context_settings=dict(help_option_names=['-h', '--help']))
 @click.version_option(__version__, '-v', '--version', prog_name='passthesalt',
                       message='%(prog)s %(version)s')
+@click.option('--path', '-p', type=click.Path(), default=DEFAULT_PATH,
+              help='The store path.')
+@click.option('--remote-path', '-r', type=click.Path(), default=DEFAULT_REMOTE,
+              help='The remote config path.')
 @click.pass_context
-def cli(ctx):
+def cli(ctx, path, remote_path):
     """
     \b
      ____                 _   _            ____        _ _
@@ -123,8 +127,8 @@ def cli(ctx):
     pts = PassTheSalt()
     remote = Remote()
 
-    if os.path.isfile(PATH):
-        pts.load(PATH)
+    if os.path.isfile(path):
+        pts.load(path)
     else:
         click.echo('Initializing Pass the Salt ...')
         owner = click.prompt('Please enter your name')
@@ -136,11 +140,11 @@ def cli(ctx):
         else:
             pts.initialize(owner)
 
-        pts.save(PATH)
+        pts.save(path)
         click.echo('Successfully initialized Pass The Salt!\n')
 
-    if os.path.isfile(REMOTE):
-        remote = remote.load(REMOTE)
+    if os.path.isfile(remote_path):
+        remote = remote.load(remote_path)
     elif ctx.invoked_subcommand in ('push', 'pull'):
         click.echo('Initializing remote ...')
 
@@ -148,12 +152,14 @@ def cli(ctx):
         token_url = click.prompt('Enter token renewal url')
         remote.initialize(url, token_url)
 
-        remote.save(REMOTE)
+        remote.save(remote_path)
         click.echo('Successfully initialized remote config.')
 
     ctx.obj = {
         'pts': pts,
-        'remote': remote
+        'remote': remote,
+        'path': path,
+        'remote_path': remote_path
     }
 
 
@@ -170,6 +176,7 @@ def pts_add(obj, label, encrypt, clipboard):
     LABEL is the unique label for the secret.
     """
     pts = obj['pts']
+    path = obj['path']
 
     if not label:
         label = click.prompt('Enter label for new secret')
@@ -190,7 +197,7 @@ def pts_add(obj, label, encrypt, clipboard):
         salt = '|'.join([domain, username, iteration])
         if click.confirm('Store "{}" as "{}"'.format(salt, label), abort=True):
             pts.store_generatable(label, salt)
-    pts.save(PATH)
+    pts.save(path)
     click.echo('Secret stored!')
 
     if not encrypt and click.confirm('\nRetrieve secret?'):
@@ -265,6 +272,7 @@ def pts_remove(obj, label):
     LABEL is the unique label of the secret.
     """
     pts = obj['pts']
+    path = obj['path']
 
     if not label:
         label = click.prompt('Enter label of secret to remove')
@@ -283,7 +291,7 @@ def pts_remove(obj, label):
         master_password = get_master_password(pts)
         pts.remove_encrypted(label, master_password)
 
-    pts.save(PATH)
+    pts.save(path)
     click.echo('Successfully removed "{}".'.format(label))
 
 
@@ -299,6 +307,7 @@ def pts_move(obj, label, new_label):
     NEW-LABEL is a new unique name for the secret..
     """
     pts = obj['pts']
+    path = obj['path']
 
     if not pts.exists(label):
         click.echo('Label "{}" does not exist.'.format(label))
@@ -316,7 +325,7 @@ def pts_move(obj, label, new_label):
         master_password = get_master_password(pts)
         pts.rename_encrypted(label, new_label, master_password)
 
-    pts.save(PATH)
+    pts.save(path)
     click.echo('Successfully renamed "{}" to "{}".'.format(label, new_label))
 
 
@@ -329,20 +338,21 @@ def pts_push(obj, force):
     """
     pts = obj['pts']
     remote = obj['remote']
+    remote_path = obj['remote_path']
 
     for _ in range(2):
         try:
             remote.put(pts, force=force)
             break
         except UnauthorizedAccess:
-            renew_remote_token(remote)
+            renew_remote_token(remote, remote_path)
         except ConflictingTimestamps:
             click.echo('Timestamp conflict. The server has a newer version of the store. '
                        'Use --force to override.')
             raise click.Abort()
 
     remote.touch()
-    remote.save(REMOTE)
+    remote.save(remote_path)
     click.echo('Successfully pushed to remote store.')
 
 
@@ -355,11 +365,13 @@ def pts_pull(obj, force):
     """
     pts = obj['pts']
     remote = obj['remote']
+    path = obj['path']
+    remote_path = obj['remote_path']
 
-    remote_pts, modified = get_remote(remote)
+    remote_pts, modified = get_remote(remote, remote_path)
 
     if force or (hasattr(pts, 'modified') and modified > pts.modified):
-        remote_pts.save(PATH)
+        remote_pts.save(path)
         click.echo('Successfully pulled remote store.')
     else:
         click.echo('Timestamp conflict. The local version is newer than the remote.')
@@ -377,11 +389,12 @@ def pts_diff(obj, filename, type, verbose):
     """
     pts = obj['pts']
     remote = obj['remote']
+    remote_path = obj['remote_path']
 
     if filename:
         other_pts = PassTheSalt().load(filename)
     else:
-        other_pts, _ = get_remote(remote)
+        other_pts, _ = get_remote(remote, remote_path)
 
     other_has = pts_diff_(other_pts, pts)
     if other_has.labels:
