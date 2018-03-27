@@ -13,7 +13,7 @@ import subprocess
 import sys
 
 
-__version__ = '2.1.0'
+__version__ = '2.2.0'
 
 
 if sys.version_info < (3, 0):
