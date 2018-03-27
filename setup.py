@@ -29,11 +29,11 @@ version = find_version()
 long_description = read('README.rst')
 
 install_requires = [
-    'click==6.7',
-    'pycrypto==2.6.1',
-    'pyperclip==1.5.27',
-    'python-dateutil==2.6.1',
-    'requests==2.18.4'
+    'click>=6.6',
+    'pycrypto>=2.0.0',
+    'pyperclip>=1.5.0',
+    'python-dateutil>=2.0.0',
+    'requests>=2.0.0'
 ]
 
 entry_points = {
