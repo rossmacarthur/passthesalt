@@ -1,7 +1,10 @@
 Pass the Salt
 =============
 
-Deterministic password generation and password storage.
+A command line application for deterministic password generation and password storage.
+
+Getting started
+---------------
 
 Install it using
 
@@ -9,21 +12,42 @@ Install it using
 
     pip install passthesalt
 
-and get started by running 
+and start storing secrets with
 
 ::
-    
-    pts add
 
+    pts add
 
 How does it work?
 -----------------
 
-Passwords are generated on the fly using the same secure algorithm which uses a *master password* and a *description* of the password. Only the description of the password is stored.
+Secrets are generated on the fly using the same secure algorithm each time which uses a *master password* and a *description* of the password. Only the description of the secret is stored. This means the secrets are not stored anywhere.
 
-If it is really needed it is also possible to AES (CFB) encrypt passwords with the master password.
+The generation algorithm is PBKDF2 using 2048 iterations of HMAC-SHA-256, applied to (*full name* + *master password*) as the key and the *description* as the salt.
 
-What is the generation algorithm?
----------------------------------
+Since sometimes you cannot choose your passwords the application also has provision to securely AES (CFB) encrypt secrets with the master password.
 
-PBKDF2 and 2048 iterations of HMAC-SHA-256 applied to (*full name* + *master password*) as the key and the *description* as the salt.
+Usage
+-----
+
+The cli has the following commands
+
+::
+
+    add   Store secret.
+    diff  Compare two stores.
+    get   Retrieve secret.
+    ls    List the secrets.
+    mv    Rename secret.
+    pull  Update local store with remote store.
+    push  Update remote store with local store.
+    rm    Remove secret.
+
+All commands and options are documented in the cli. You can use the :code:`--help` option with any command.
+
+License
+-------
+
+This project is licensed under the MIT License. See the `LICENSE.txt`_ file.
+
+.. _LICENSE.txt: LICENSE.txt
