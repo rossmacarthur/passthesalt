@@ -129,6 +129,8 @@ def cli(ctx, path, remote_path):
 
     if os.path.isfile(path):
         pts.load(path)
+    elif ctx.invoked_subcommand == 'pull':
+        pass
     else:
         click.echo('Initializing Pass the Salt ...')
         owner = click.prompt('Please enter your name')
@@ -153,7 +155,7 @@ def cli(ctx, path, remote_path):
         remote.initialize(url, token_url)
 
         remote.save(remote_path)
-        click.echo('Successfully initialized remote config.')
+        click.echo('Successfully initialized remote config.\n')
 
     ctx.obj = {
         'pts': pts,
@@ -370,7 +372,7 @@ def pts_pull(obj, force):
 
     remote_pts, modified = get_remote(remote, remote_path)
 
-    if force or (hasattr(pts, 'modified') and modified > pts.modified):
+    if not pts or force or (hasattr(pts, 'modified') and modified > pts.modified):
         remote_pts.save(path)
         click.echo('Successfully pulled remote store.')
     else:

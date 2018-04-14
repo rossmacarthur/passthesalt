@@ -182,6 +182,12 @@ class File(object):
 
 class Remote(File):
 
+    def __bool__(self):
+        return bool(self.remote)
+
+    def __nonzero__(self):
+        return self.__bool__()
+
     def __init__(self):
         self.remote = dict()
 
@@ -235,6 +241,12 @@ class Remote(File):
 
 
 class PassTheSalt(File):
+
+    def __bool__(self):
+        return bool(self.config)
+
+    def __nonzero__(self):
+        return self.__bool__()
 
     def __init__(self):
         self.config = dict()
