@@ -1,15 +1,16 @@
 import io
 import os
 import re
+
 from setuptools import setup
 
 
 def read(*path):
     """
-    Python 2/3 file reading.
+    Cross-platform Python 2/3 file reading.
     """
-    version_file = os.path.join(os.path.dirname(__file__), *path)
-    with io.open(version_file, encoding='utf8') as f:
+    filename = os.path.join(os.path.dirname(__file__), *path)
+    with io.open(filename, encoding='utf8') as f:
         return f.read()
 
 
@@ -28,18 +29,36 @@ version = find_version()
 
 long_description = read('README.rst')
 
-install_requires = [
-    'click>=6.6',
-    'pycrypto>=2.0.0',
-    'pyperclip>=1.5.0',
-    'python-dateutil>=2.0.0',
-    'requests>=2.0.0'
+install_requirements = [
+    'click>=7.0',
+    'cryptography>=2.0.0',
+    'pyperclip>=1.0.0',
+    'tabulate>=0.5.0'
+]
+
+lint_requirements = [
+    'flake8',
+    'flake8-docstrings',
+    'flake8-isort',
+    'flake8-per-file-ignores',
+    'flake8-quotes',
+    'mccabe',
+    'pep8-naming'
+]
+
+test_requirements = [
+    'pytest',
+    'pytest-cov'
+]
+
+package_requirements = [
+    'twine'
 ]
 
 entry_points = {
     'console_scripts': [
-        'pts=passthesalt.__main__:cli',
-        'passthesalt=passthesalt.__main__:cli'
+        'pts=passthesalt.cli:cli',
+        'passthesalt=passthesalt.cli:cli'
     ]
 }
 
@@ -47,29 +66,32 @@ setup(
     name='passthesalt',
     packages=['passthesalt'],
     version=version,
-    install_requires=install_requires,
+    install_requires=install_requirements,
+    extras_require={'linting': lint_requirements,
+                    'testing': test_requirements,
+                    'packaging': package_requirements},
+    python_requires='>=3.4',
     entry_points=entry_points,
-    python_requires='>=2.7',
-    description='Deterministic password generation and password storage.',
-    long_description=long_description,
+
     author='Ross MacArthur',
     author_email='macarthur.ross@gmail.com',
+    description='Deterministic password generation and password storage.',
+    long_description=long_description,
     license='MIT',
-    url='https://github.com/rossmacarthur/passthesalt',
-    download_url='https://github.com/rossmacarthur/passthesalt/archive/{}.tar.gz'.format(version),
     keywords='password manager pbkdf2',
+    url='https://github.com/rossmacarthur/passthesalt',
+    download_url='https://github.com/rossmacarthur/passthesalt/archive/{version}.tar.gz'
+                 .format(version=version),
     classifiers=[
-        'Development Status :: 4 - Beta',
         'Environment :: Console',
         'License :: OSI Approved :: MIT License',
+        'Natural Language :: English',
         'Operating System :: OS Independent',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6'
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7'
     ]
 )
