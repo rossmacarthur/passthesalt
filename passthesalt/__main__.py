@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 import click
 import copy
+import json
 import os
 import re
 from passthesalt import PassTheSalt, Remote, UnauthorizedAccess, ConflictingTimestamps, \
@@ -410,6 +411,37 @@ def pts_diff(obj, filename, type, verbose):
 
     if other_has.labels or local_has.labels:
         exit(1)
+
+
+@cli.command('dump')
+@click.option('--output', '-o', type=click.Path(), help='The output path.')
+@click.option('--with-generatable-secrets', is_flag=True)
+@click.pass_obj
+def pts_dump(obj, output, with_generatable_secrets):
+    """
+    JSON dump all the secrets in the store.
+    """
+    pts = obj['pts']
+
+    master_password = get_master_password(pts)
+
+    data = {}
+
+    for label in pts.labels:
+        data[label] = pts.labels[label].copy()
+        secret = pts.get(label, master_password)
+
+        if with_generatable_secrets or data[label]['type'] == 'encrypted':
+            data[label]['secret'] = secret
+
+        if data[label]['type'] == 'generatable':
+            data[label]['salt'] = pts.generatable[label]
+
+    if output:
+        with open(output, 'w') as f:
+            json.dump(data, f, indent=4)
+    else:
+        click.echo(json.dumps(output, indent=4))
 
 
 if __name__ == '__main__':
