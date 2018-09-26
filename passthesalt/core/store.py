@@ -82,7 +82,8 @@ class PassTheSalt(Schema):
     """
 
     class Meta:
-        attributes = Parameters(config=Config, master=str, secrets=dict, secrets_encrypted=str)
+        attributes = Parameters(config=Config, master=str, secrets=dict,
+                                secrets_encrypted=str, version=str)
         modified = True
 
     @classmethod
@@ -142,6 +143,15 @@ class PassTheSalt(Schema):
         """
         self._master = master
         return self
+
+    def __iter__(self):
+        """
+        Iterate over the secrets.
+
+        Returns:
+            Iterable: an iterator over the dictionary of secrets.
+        """
+        return self.secrets.__iter__()
 
     def __contains__(self, label):
         """

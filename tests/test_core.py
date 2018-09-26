@@ -81,7 +81,8 @@ class TestGeneratable:
 
     def test_to_dict(self):
         secret = self.cls('salt')
-        assert secret.to_dict(modified=False) == {'kind': 'generatable', 'salt': 'salt'}
+        assert secret.to_dict(modified=False) == {'kind': 'generatable', 'salt': 'salt',
+                                                  'algorithm': {'version': 1}}
 
     def test___getattr__(self):
         secret = self.cls('salt')
@@ -176,7 +177,8 @@ class TestLogin:
         secret = self.cls('github.com', 'johnsmith')
         assert secret.to_dict(modified=False) == {'kind': 'generatable.login',
                                                   'domain': 'github.com',
-                                                  'username': 'johnsmith'}
+                                                  'username': 'johnsmith',
+                                                  'algorithm': {'version': 1}}
 
     def test___init__(self):
         with raises(ValueError):
@@ -438,6 +440,15 @@ class TestPassTheSalt:
         assert pts.exists(prefix='t')
         assert not pts.exists(pattern='^tes$')
         assert not pts.exists(prefix='e')
+
+    def test___iter__(self):
+        pts = PassTheSalt()
+        pts.add('test', Generatable('salt'))
+
+        assert list(pts.__iter__()) == list(pts.secrets.keys())
+
+        for label in pts:
+            assert label == 'test'
 
     def test___contains__(self):
         pts = PassTheSalt()

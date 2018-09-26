@@ -2,6 +2,8 @@
 A command line interface for PassTheSalt.
 """
 
+import datetime
+import json
 import os
 import re
 import subprocess
@@ -337,3 +339,48 @@ def pts_mv(obj, label, new_label):
         pts.save(path)
     except LabelError as e:
         raise click.ClickException(e)
+
+
+@cli.command('migrate', hidden=True)
+@click.option('-i', '--input-file', type=click.Path(exists=True, dir_okay=False),
+              help='The input data file.')
+@click.pass_obj
+def pts_migrate(obj, input_file):
+    """
+    Load secrets from a PassTheSalt 2.3.x dumped database.
+    """
+    pts = obj['pts']
+    path = obj['path']
+
+    if input_file:
+        with open(input_file, 'r') as f:
+            raw = json.load(f)
+    else:
+        raw = json.loads(sys.stdin.read())
+
+    for label, raw_secret in raw.items():
+        modified = datetime.datetime.strptime(raw_secret['modified'], '%Y%m%d')
+
+        if raw_secret['type'] == 'generatable':
+            legacy_algorithm = Algorithm(version=None)
+            domain, username, iteration = raw_secret['salt'].split('|')
+            iteration = int(iteration) or None
+            secret = Login(domain, username, iteration=iteration, algorithm=legacy_algorithm)
+            pts[label] = secret
+
+            # override modified time with original
+            secret.modified = modified
+
+        elif raw_secret['type'] == 'encrypted':
+            secret = Encrypted.with_secret(raw_secret['secret'])
+            pts[label] = secret
+
+            # override modified time with original
+            secret.modified = modified
+
+        else:
+            raise click.ClickException('unknown secret type "{}"'.format(raw_secret['type']))
+
+        click.echo('Migrated "{}"'.format(label))
+
+    pts.save(path)

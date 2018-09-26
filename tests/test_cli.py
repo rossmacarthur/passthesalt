@@ -1,7 +1,10 @@
+import json
+from datetime import datetime
+
 from click.testing import CliRunner
 
 from passthesalt.cli import cli
-from passthesalt.core import Encrypted, Generatable, Master, PassTheSalt
+from passthesalt.core import Encrypted, Generatable, Login, Master, PassTheSalt
 
 
 class TestCli:
@@ -39,7 +42,7 @@ class TestCli:
             pts.config.master = Master.with_validation('password')
             pts.save('passthesalt')
 
-            # add something that can be added
+            # add raw type
             result = runner.invoke(
                 cli,
                 ['--path', 'passthesalt', 'add', '--type', 'raw'],
@@ -53,11 +56,25 @@ class TestCli:
             assert isinstance(pts['test'], Generatable)
             assert pts['test'].salt == 'salt'
 
+            # add a login type
+            result = runner.invoke(
+                cli,
+                ['--path', 'passthesalt', 'add'],
+                input='test2\nwww\nwww.test.com\ntest\n\ny\nn\n'
+            )
+            assert result.exit_code == 0
+            assert 'Secret stored!' in result.output
+
+            pts = PassTheSalt.read('passthesalt')
+            assert 'test2' in pts
+            assert isinstance(pts['test2'], Login)
+            assert pts['test2'].salt == 'www.test.com|test|0'
+
             # add something and retrieve it
             result = runner.invoke(
                 cli,
                 ['--path', 'passthesalt', 'add', '--type', 'raw', '--no-clipboard'],
-                input='test2\nsalt\ny\ny\npassword'
+                input='test3\nsalt\ny\ny\npassword'
             )
             assert result.exit_code == 0
             assert 'Secret stored!' in result.output
@@ -227,3 +244,44 @@ class TestCli:
             result = runner.invoke(cli, ['--path', 'passthesalt', 'mv', 'test', 'test2'])
             assert result.exit_code == 1
             assert 'Error: "test2" already exists' in result.output
+
+    def test_pts_migrate(self):
+        runner = CliRunner()
+
+        with runner.isolated_filesystem():
+            pts = PassTheSalt().with_master('password')
+            pts.add('test', Generatable('salt'))
+            pts.save('passthesalt')
+
+            with open('dump.json', 'w') as f:
+                f.write(json.dumps({
+                    'test1': {
+                        'type': 'generatable',
+                        'salt': 'www.test.com|test|0',
+                        'modified': '20160501'
+                    },
+                    'test2': {
+                        'type': 'encrypted',
+                        'secret': 'verysecure',
+                        'modified': '20160502'
+                    }
+                }))
+
+            result = runner.invoke(
+                cli,
+                ['--path', 'passthesalt', 'migrate', '--input-file', 'dump.json'],
+                input='password\n'
+            )
+            assert result.exit_code == 0
+            assert 'Migrated "test1"' in result.output
+            assert 'Migrated "test2"' in result.output
+
+            pts = PassTheSalt.read('passthesalt').with_master('password')
+            assert 'test' in pts
+            assert 'test1' in pts
+            assert pts['test1'].to_dict(modified=False) == \
+                Login('www.test.com', 'test').to_dict(modified=False)
+            assert pts['test1'].modified == datetime(year=2016, month=5, day=1)
+            assert 'test2' in pts
+            assert pts['test2'].get() == 'verysecure'
+            assert pts['test2'].modified == datetime(year=2016, month=5, day=2)

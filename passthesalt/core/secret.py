@@ -25,7 +25,7 @@ class Algorithm(Schema):
     class Meta:
         constructor = Function(kwargs=Parameters(version=int, length=int))
 
-    def __init__(self, version=None, length=None):
+    def __init__(self, version=1, length=None):
         """
         Create a new Algorithm.
 
