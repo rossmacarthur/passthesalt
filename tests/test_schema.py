@@ -6,7 +6,7 @@ from io import StringIO
 
 from pytest import raises
 
-from passthesalt.error import SchemaError
+from passthesalt import SchemaError
 from passthesalt.schema import Function, Parameters, Schema
 
 
@@ -273,6 +273,16 @@ class TestSchema:
         obj = Example.loads('{"a": "derp"}')
         assert obj.a == 'derp'
 
+    def test_decode(self):
+
+        # a class with extra attributes
+        class Example(Schema):
+            class Meta:
+                attributes = Parameters(a=str)
+
+        obj = Example.decode('eyJhIjogImRlcnAifQ==')
+        assert obj.a == 'derp'
+
     def test_load(self):
 
         class Example(Schema):
@@ -301,26 +311,44 @@ class TestSchema:
     def test_to_dict(self):
 
         class Example(Schema):
+            v = 'xyz'
+
             class Meta:
+                extras = Parameters(('__class__.v', str))
                 datetime_format = '%Y-%m-%d'
 
         obj = Example()
-        assert obj.to_dict() == {}
+        assert obj.to_dict() == {'v': 'xyz'}
 
         obj.a = 'derp'
         obj.b = 5
         obj._c = 'test'
         obj.d = datetime(year=2001, month=9, day=11)
-        assert obj.to_dict() == {'a': 'derp', 'b': 5, 'd': '2001-09-11'}
+        assert obj.to_dict() == {'a': 'derp', 'b': 5, 'd': '2001-09-11', 'v': 'xyz'}
 
         sub_obj = Example()
         sub_obj.a = 'herp'
         sub_obj.b = 0.0
         obj.d = {'x': sub_obj, 'y': 100}
-        assert obj.to_dict() == {'a': 'derp', 'b': 5, 'd': {'x': {'a': 'herp', 'b': 0.0}, 'y': 100}}
+        assert obj.to_dict() == {'a': 'derp', 'b': 5,
+                                 'd': {'x': {'a': 'herp', 'b': 0.0, 'v': 'xyz'}, 'y': 100},
+                                 'v': 'xyz'}
 
         obj.d = [sub_obj, 5]
-        assert obj.to_dict() == {'a': 'derp', 'b': 5, 'd': [{'a': 'herp', 'b': 0.0}, 5]}
+        assert obj.to_dict() == {'a': 'derp', 'b': 5, 'd': [{'a': 'herp', 'b': 0.0, 'v': 'xyz'}, 5],
+                                 'v': 'xyz'}
+
+        Example.Meta.extras = Parameters(('__class__.v', int))
+        obj = Example()
+
+        with raises(SchemaError):
+            obj.to_dict()
+
+        del Example.v
+        obj = Example()
+
+        with raises(SchemaError):
+            obj.to_dict()
 
     def test_dumps(self):
         obj = Schema()
@@ -328,6 +356,13 @@ class TestSchema:
         obj.b = 5
 
         assert obj.dumps(sort_keys=True) == '{"a": "derp", "b": 5}'
+
+    def test_encode(self):
+        obj = Schema()
+        obj.a = 'derp'
+        obj.b = 5
+
+        assert obj.encode(sort_keys=True) == 'eyJhIjogImRlcnAiLCAiYiI6IDV9'
 
     def test_dump(self):
         obj = Schema()

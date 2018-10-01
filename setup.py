@@ -55,6 +55,10 @@ package_requirements = [
     'twine'
 ]
 
+remote_requirements = [
+    'requests>=2.0.0'
+]
+
 entry_points = {
     'console_scripts': [
         'pts=passthesalt.cli:cli',
@@ -69,7 +73,8 @@ setup(
     install_requires=install_requirements,
     extras_require={'linting': lint_requirements,
                     'testing': test_requirements,
-                    'packaging': package_requirements},
+                    'packaging': package_requirements,
+                    'remote': remote_requirements},
     python_requires='>=3.4',
     entry_points=entry_points,
 

@@ -2,8 +2,8 @@ import string
 
 from pytest import raises
 
-from passthesalt.core import Config, Encrypted, Generatable, Login, Master, PassTheSalt, Secret
-from passthesalt.error import ConfigurationError, ContextError, LabelError, SchemaError
+from passthesalt import (Config, ConfigurationError, ContextError, Encrypted, Generatable,
+                         LabelError, Login, Master, PassTheSalt, SchemaError, Secret)
 
 
 class TestMaster:

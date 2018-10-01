@@ -45,23 +45,8 @@ class Secret(ABC, Schema):
     kind = 'secret'
 
     class Meta:
+        extras = Parameters(('__class__.kind', str))
         modified = True
-
-    def to_dict(self, modified=True):
-        """
-        Return a dictionary representation of this Secret.
-
-        This overrides `Schema.to_dict()` in order to insert the kind of secret.
-
-        Args:
-            modified (bool): whether to add the `modified` attribute.
-
-        Returns:
-            Dict: the dictionary representation.
-        """
-        d = super().to_dict(modified=modified)
-        d['kind'] = self.__class__.kind
-        return d
 
     def __getattr__(self, item):
         """
@@ -140,7 +125,6 @@ class Generatable(Secret):
     class Meta:
         constructor = Function(args=Parameters(salt=str),
                                kwargs=Parameters(algorithm=Algorithm))
-        modified = True
 
     def __init__(self, salt, algorithm=None):
         """
@@ -192,7 +176,6 @@ class Login(Generatable):
     class Meta:
         constructor = Function(args=Parameters(domain=str, username=str),
                                kwargs=Parameters(iteration=int, algorithm=Algorithm))
-        modified = True
 
     def __init__(self, domain, username, iteration=None, algorithm=None):
         """

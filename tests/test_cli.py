@@ -3,8 +3,8 @@ from datetime import datetime
 
 from click.testing import CliRunner
 
+from passthesalt import Encrypted, Generatable, Login, Master, PassTheSalt
 from passthesalt.cli import cli
-from passthesalt.core import Encrypted, Generatable, Login, Master, PassTheSalt
 
 
 class TestCli:

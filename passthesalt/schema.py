@@ -3,6 +3,7 @@ Define a class schema for serializing and deserializing a class as JSON.
 """
 
 import json
+from base64 import b64decode, b64encode
 from collections import OrderedDict
 from datetime import datetime
 
@@ -97,7 +98,7 @@ class Parameters:
                                       .format(name, type_, sub))
 
             elif validate_presence:
-                raise SchemaError('value is required; name={}'.format(name))
+                raise SchemaError('value is required for "{}"'.format(name))
 
         return result
 
@@ -193,10 +194,34 @@ class Schema:
         """
         Update the modified time of this object to the current UTC time.
         """
-        meta = self.meta()
-
-        if meta.modified:
+        if self.meta().modified:
             self.modified = datetime.utcnow()
+
+    @property
+    def attrs(self):
+        """
+        Get a dictionary of attribute names and values.
+
+        Returns:
+            Dict: the attributes names and values.
+        """
+        d = vars(self)
+
+        for key, value in self.meta().extras.params.items():
+            try:
+                attr = self
+                for next_attr in key.split('.'):
+                    attr = getattr(attr, next_attr)
+            except AttributeError:
+                raise SchemaError('attribute "{}" not found on "{}"'
+                                  .format(key, self.__class__.__name__))
+
+            if isinstance(attr, value):
+                d[next_attr] = attr
+            else:
+                raise SchemaError('attribute "{}" has incorrect type'.format(key))
+
+        return d
 
     @classmethod
     def meta(cls):
@@ -209,19 +234,21 @@ class Schema:
         class Meta:
             constructor = Function()
             attributes = Parameters()
+            extras = Parameters()
             datetime_format = '%Y-%m-%d %H:%M:%S'
             modified = False
 
-        if hasattr(cls, 'Meta'):
+        for schema in cls.__mro__[::-1]:
+            if hasattr(schema, 'Meta'):
+                for attr, value in vars(schema.Meta).items():
+                    if attr.startswith('_'):
+                        continue
 
-            for attr, value in vars(cls.Meta).items():
-                if attr.startswith('_'):
-                    continue
-
-                if attr in ('constructor', 'attributes', 'datetime_format', 'modified'):
-                    setattr(Meta, attr, value)
-                else:
-                    raise SchemaError('unexpected Meta attribute: {}'.format(attr))
+                    if attr in ('constructor', 'attributes', 'extras',
+                                'datetime_format', 'modified'):
+                        setattr(Meta, attr, value)
+                    else:
+                        raise SchemaError('unexpected Meta attribute: {}'.format(attr))
 
         if Meta.modified:
             Meta.attributes.update(modified=datetime)
@@ -265,6 +292,21 @@ class Schema:
             Schema: a new Schema object.
         """
         return cls.from_dict(json.loads(s, *args, **kwargs))
+
+    @classmethod
+    def decode(cls, s, *args, **kwargs):
+        """
+        Create a Schema object from a base64 encoded string.
+
+        Args:
+            s (Text): the base64 encoded input string.
+            *args: extra arguments passed directly to `json.loads()`
+            **kwargs: extra keyword arguments passed directly to `json.loads()`.
+
+        Returns:
+            Schema: a new Schema object.
+        """
+        return cls.loads(b64decode(s.encode()).decode('utf-8'), *args, **kwargs)
 
     @classmethod
     def load(cls, f, *args, **kwargs):
@@ -318,14 +360,13 @@ class Schema:
             elif isinstance(v, list):
                 return [_to_dict(e) for e in v]
             elif isinstance(v, datetime):
-                meta = self.meta()
-                return v.strftime(meta.datetime_format)
+                return v.strftime(self.meta().datetime_format)
             elif isinstance(v, Schema):
                 return v.to_dict(modified=modified)
             else:
                 return v
 
-        return _to_dict(vars(self))
+        return _to_dict(self.attrs)
 
     def dumps(self, *args, **kwargs):
         """
@@ -339,6 +380,19 @@ class Schema:
             Text: the string representation.
         """
         return json.dumps(self.to_dict(), *args, **kwargs)
+
+    def encode(self, *args, **kwargs):
+        """
+        Base64 encode a JSON dumped representation of this Schema.
+
+        Args:
+            *args: extra arguments passed directly to `json.dumps()`
+            **kwargs: extra keyword arguments passed directly to `json.dumps()`.
+
+        Returns:
+            Text: the base64 encoded string.
+        """
+        return b64encode(self.dumps(*args, **kwargs).encode()).decode('ascii')
 
     def dump(self, f, *args, **kwargs):
         """

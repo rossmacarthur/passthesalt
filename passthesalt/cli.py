@@ -13,8 +13,8 @@ import click
 import pyperclip
 from tabulate import tabulate
 
-from passthesalt import (Algorithm, Encrypted, Generatable, LabelError,
-                         Login, Master, PassTheSalt, __version__)
+from passthesalt import (Algorithm, Encrypted, Error, Generatable, LabelError,
+                         Login, Master, PassTheSalt, Stow, __version__)
 
 
 class URLParamType(click.ParamType):
@@ -24,19 +24,55 @@ class URLParamType(click.ParamType):
 
     name = 'url'
 
+    def __init__(self, strip_scheme=True):
+        """
+        Create a new URLParamType.
+
+        Args:
+            strip_scheme (bool): whether to remove the URL scheme.
+        """
+        self.strip_scheme = strip_scheme
+
     def convert(self, value, param, ctx):
         """
         Process the entered URL, stripping it of the http prefix.
         """
         temp = re.sub(r'[hH][tT]{2}[pP][sS]?://', '', value).rstrip('/')
         if '.' in temp[1:-1]:
-            return temp
+            if self.strip_scheme:
+                return temp
+            else:
+                return value
         else:
             self.fail('"{}" is not a valid url'.format(value), param, ctx)
 
 
 URL = URLParamType()
+URL_WITH_SCHEME = URLParamType(strip_scheme=False)
 DEFAULT_PATH = os.path.expanduser('~/.passthesalt')
+DEFAULT_REMOTE_PATH = os.path.expanduser('~/.passthesalt.remote')
+
+
+def handle_errors(func):
+    """
+    Decorator to translate passthesalt Errors to ClickExceptions.
+
+    Args:
+        func (Callable): the function to decorate.
+
+    Raises:
+        click.ClickException: raise when the function raises an Error.
+
+    Returns:
+        Callable: the decorated function.
+    """
+    def decorated_function(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Error as e:
+            raise click.ClickException(e.message)
+
+    return decorated_function
 
 
 def clear_clipboard(timeout):
@@ -95,12 +131,29 @@ def get_master_from_user(pts):
     raise click.ClickException('three incorrect attempts.')
 
 
+def get_auth_from_user(remote):
+    """
+    Prompt the user for the username and password from the remote store.
+
+    Args:
+        remote (Remote): the remote instance.
+
+    Returns:
+        Tuple[Text, Text]: the username and password.
+    """
+    click.echo('Authentication is required.')
+    name = click.prompt('Enter username')
+    password = click.prompt('Enter password', hide_input=True)
+    return (name, password)
+
+
 @click.group(context_settings={'help_option_names': ['-h', '--help']}, invoke_without_command=True)
 @click.version_option(__version__, '-v', '--version', prog_name='passthesalt',
                       message='%(prog)s %(version)s')
 @click.option('--path', '-p', type=click.Path(), default=DEFAULT_PATH,
               help='The path to the PassTheSalt store.')
 @click.pass_context
+@handle_errors
 def cli(ctx, path):
     """
     \b
@@ -115,27 +168,28 @@ def cli(ctx, path):
     pts = None
 
     try:
-        pts = PassTheSalt.read(path)
+        pts = PassTheSalt.read(path).with_master(get_master_from_user)
     except OSError:
         pass
 
-    if pts is None:
-        click.echo('Initializing PassTheSalt ...')
-        pts = PassTheSalt()
-        pts.config.owner = click.prompt('Please enter your name')
+    if ctx.invoked_subcommand != 'pull':
+        if pts is None:
+            click.echo('Initializing PassTheSalt ...')
+            pts = PassTheSalt().with_master(get_master_from_user)
+            pts.config.owner = click.prompt('Please enter your name')
 
-        if click.confirm('Use master password validation?'):
-            master = click.prompt('Please enter the master password',
-                                  confirmation_prompt=True, hide_input=True)
-            pts.config.master = Master.with_validation(master)
+            if click.confirm('Use master password validation?'):
+                master = click.prompt('Please enter the master password',
+                                      confirmation_prompt=True, hide_input=True)
+                pts.config.master = Master.with_validation(master)
 
-        pts.save(path)
-        click.echo('Successfully initialized PassTheSalt!')
-    elif ctx.invoked_subcommand is None:
-        ctx.fail('Missing command.')
+            pts.save(path)
+            click.echo('Successfully initialized PassTheSalt!')
+        elif ctx.invoked_subcommand is None:
+            ctx.fail('Missing command.')
 
     ctx.obj = {
-        'pts': pts.with_master(get_master_from_user),
+        'pts': pts,
         'path': path
     }
 
@@ -151,6 +205,7 @@ def cli(ctx, path):
 @click.option('--clipboard/--no-clipboard', default=True, show_default=True,
               help='Whether to copy the secret to the clipboard or print it out.')
 @click.pass_context
+@handle_errors
 def pts_add(ctx, label, type, length, version, clipboard):
     """
     Add a secret.
@@ -194,6 +249,7 @@ def pts_add(ctx, label, type, length, version, clipboard):
 @click.argument('label', required=False)
 @click.option('--secret', '-s', help='The secret to store.')
 @click.pass_obj
+@handle_errors
 def pts_encrypt(obj, label, secret):
     """
     Encrypt a secret.
@@ -219,6 +275,7 @@ def pts_encrypt(obj, label, secret):
 @click.option('--clipboard/--no-clipboard', default=True, show_default=True,
               help='Whether to copy the secret to the clipboard or print it out.')
 @click.pass_obj
+@handle_errors
 def pts_get(obj, label, clipboard):
     """
     Retrieve a secret.
@@ -246,6 +303,7 @@ def pts_get(obj, label, clipboard):
 @click.option('--header/--no-header', default=True, help='Whether to display the table header.')
 @click.option('--verbose', '-v', count=True, help='Increase amount information displayed.')
 @click.pass_obj
+@handle_errors
 def pts_ls(obj, pattern, prefix, kind, header, verbose):
     """
     List the secrets.
@@ -280,6 +338,7 @@ def pts_ls(obj, pattern, prefix, kind, header, verbose):
 @click.argument('label', required=False)
 @click.option('--force', '-f', is_flag=True, help='Do not ask for confirmation before removing.')
 @click.pass_obj
+@handle_errors
 def pts_rm(obj, label, force):
     """
     Remove a secret.
@@ -324,6 +383,7 @@ def pts_rm(obj, label, force):
 @click.argument('label')
 @click.argument('new-label', metavar='NEW-LABEL')
 @click.pass_obj
+@handle_errors
 def pts_mv(obj, label, new_label):
     """
     Relabel a secret.
@@ -341,10 +401,71 @@ def pts_mv(obj, label, new_label):
         raise click.ClickException(e)
 
 
+@cli.command('push')
+@click.option('--path', '-p', type=click.Path(), default=DEFAULT_REMOTE_PATH,
+              help='The path to the PassTheSalt remote configuration.')
+@click.option('--force', '-f', is_flag=True,
+              help='Ignore any conflicts.')
+@click.pass_obj
+@handle_errors
+def pts_push(obj, path, force):
+    """
+    Update the remote store.
+    """
+    pts = obj['pts']
+
+    try:
+        remote = Stow.read(path).with_auth(get_auth_from_user)
+    except OSError:
+        click.echo('Initializing PassTheSalt remote configuration ...')
+        location = click.prompt('Enter location URL', type=URL_WITH_SCHEME)
+        token_location = click.prompt('Enter token renew URL', type=URL_WITH_SCHEME)
+        remote = Stow(location, token_location).with_auth(get_auth_from_user)
+
+    remote.put(pts, force=force)
+    remote.save(path)
+    click.echo('Successfully pushed to remote store.')
+
+
+@cli.command('pull')
+@click.option('--path', '-p', type=click.Path(), default=DEFAULT_REMOTE_PATH,
+              help='The path to the PassTheSalt remote configuration.')
+@click.option('--force', '-f', is_flag=True,
+              help='Ignore any conflicts.')
+@click.pass_obj
+@handle_errors
+def pts_pull(obj, path, force):
+    """
+    Retrieve a remote store.
+    """
+    pts = obj['pts']
+    pts_path = obj['path']
+
+    try:
+        remote = Stow.read(path).with_auth(get_auth_from_user)
+    except OSError:
+        click.echo('Initializing PassTheSalt remote configuration ...')
+        location = click.prompt('Enter location URL', type=URL_WITH_SCHEME)
+        token_location = click.prompt('Enter token renew URL', type=URL_WITH_SCHEME)
+        remote = Stow(location, token_location).with_auth(get_auth_from_user)
+
+    remote_pts = remote.get()
+    remote.save(path)
+
+    if not pts or force or remote_pts.modified > pts.modified:
+        remote_pts.save(pts_path)
+        click.echo('Successfully pulled remote store.')
+    elif remote_pts == pts:
+        click.echo('Already up to date.')
+    else:
+        raise click.ClickException('The local version is newer than the remote.')
+
+
 @cli.command('migrate', hidden=True)
 @click.option('-i', '--input-file', type=click.Path(exists=True, dir_okay=False),
               help='The input data file.')
 @click.pass_obj
+@handle_errors
 def pts_migrate(obj, input_file):
     """
     Load secrets from a PassTheSalt 2.3.x dumped database.
