@@ -20,7 +20,7 @@ def pbkdf2_hash_bytes(password, salt, iterations=2048, length=20):
     PBKDF2 HMAC-SHA-256 hash a password.
 
     Args:
-        password (Text): the password to hash.
+        password (str): the password to hash.
         salt (bytes): the salt for the hash.
         iterations (int): the number of PBKDF2 iterations.
 
@@ -41,12 +41,12 @@ def pbkdf2_hash(password, salt=None, iterations=100000):
     PBKDF2 HMAC-SHA-256 hash a password.
 
     Args:
-        password (Text): the password to hash.
-        salt (Text): the salt for the hash.
+        password (str): the password to hash.
+        salt (str): the salt for the hash.
         iterations (int): the number of PBKDF2 iterations.
 
     Returns:
-        Text: the hash as a hex string.
+        str: the hash as a hex string.
     """
     if salt is None:
         salt = hexlify(os.urandom(20)).decode()
@@ -62,24 +62,24 @@ def generate_key(master_key):
     Generate a Fernet key from the master key.
 
     Args:
-        master_key (Text): the master key.
+        master_key (str): the master key.
 
     Returns:
-        Text: 32 url-safe base64-encoded bytes.
+        str: 32 url-safe base64-encoded bytes.
     """
     return urlsafe_b64encode(sha256(master_key.encode()).digest())
 
 
 def encrypt(d, master_key):
     """
-    Encrypt a dicionary with a master key.
+    Encrypt a dictionary with a master key.
 
     Args:
-        d (Dict): the dictionary to encrypt.
-        master_key (Text): the master key.
+        d (dict): the dictionary to encrypt.
+        master_key (str): the master key.
 
     Returns:
-        Text: the encrypted dictionary as a hex string.
+        str: the encrypted dictionary as a hex string.
     """
     key = generate_key(master_key)
     fernet = Fernet(key)
@@ -93,11 +93,11 @@ def decrypt(s, master_key):
     Decrypt an encrypted dictionary with the master key.
 
     Args:
-        s (Text): the encrypted hexstring.
-        master_key (Text): the master key.
+        s (str): the encrypted hexstring.
+        master_key (str): the master key.
 
     Returns:
-        Dict: the decrypted dictionary.
+        dict: the decrypted dictionary.
     """
     key = generate_key(master_key)
     fernet = Fernet(key)
@@ -116,7 +116,7 @@ def passlify_legacy(b):
         b (bytes): the bytes object.
 
     Returns:
-        Text: the password.
+        str: the password.
     """
     def shiftlify(b, chars, shift=0):
         b = [(byte + shift) % 256 for byte in b]
@@ -156,12 +156,12 @@ def passlify(b, lowers=True, uppers=True, digits=True, extras='!@#$%^&*_+-=', st
         lowers (bool): use lowercase letters.
         uppers (bool): use uppercase letters.
         digits (bool): use digits.
-        extras (Text): extra symbols to use.
-        startswith (Text): attempt to make sure the password starts with one of
+        extras (str): extra symbols to use.
+        startswith (str): attempt to make sure the password starts with one of
             these chracters.
 
     Returns:
-        Text: the password.
+        str: the password.
     """
     groups = []
 
@@ -209,12 +209,12 @@ def generate(salt, master_key, version=None, length=None):
     Generate a password from a salt and master key.
 
     Args:
-        salt (Text): the salt.
-        master_key (Text): the master key.
+        salt (str): the salt.
+        master_key (str): the master key.
         version (int): the generation algorithm version.
 
     Returns:
-        Text: the generated secret.
+        str: the generated secret.
     """
     if length is None:
         length = 20

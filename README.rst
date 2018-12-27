@@ -37,18 +37,18 @@ provision to securely encrypt secrets with the master password.
 Usage
 -----
 
-The cli has the following commands
+The command line interface has the following commands
 
 ::
 
-    add   Store secret.
-    diff  Compare two stores.
-    get   Retrieve secret.
-    ls    List the secrets.
-    mv    Rename secret.
-    pull  Update local store with remote store.
-    push  Update remote store with local store.
-    rm    Remove secret.
+    add      Add a secret.
+    encrypt  Encrypt a secret.
+    get      Retrieve a secret.
+    ls       List the secrets.
+    mv       Relabel a secret.
+    pull     Retrieve a remote store.
+    push     Update the remote store.
+    rm       Remove a secret.
 
 All commands and options are documented in the cli. You can use the
 :code:`--help` option with any command.
@@ -56,6 +56,6 @@ All commands and options are documented in the cli. You can use the
 License
 -------
 
-This project is licensed under the MIT License. See the `LICENSE.txt`_ file.
+This project is licensed under the MIT License. See the `LICENSE`_ file.
 
-.. _LICENSE.txt: LICENSE.txt
+.. _LICENSE: LICENSE

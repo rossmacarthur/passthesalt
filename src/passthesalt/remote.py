@@ -5,32 +5,21 @@ Remote configuration for PassTheSalt.
 import json
 
 import requests
+from serde import field
 
 from passthesalt.core import PassTheSalt
-from passthesalt.error import (ConflictingTimestamps, RemoteError,
-                               UnauthorizedAccess, UnexpectedStatusCode)
-from passthesalt.schema import Function, Parameters, Schema
+from passthesalt.error import (
+    ConflictingTimestamps, RemoteError, UnauthorizedAccess, UnexpectedStatusCode
+)
+from passthesalt.model import ModifiedModel
 
 
-class Remote(Schema):
+class Remote(ModifiedModel):
     """
     Configuration for a remote store.
     """
 
-    class Meta:
-        constructor = Function(args=Parameters(location=str))
-        modified = True
-
-    def __init__(self, location):
-        """
-        Create a new Remote.
-
-        Args:
-            location (Text): the URL location of the remote store.
-        """
-        super().__init__()
-        self.location = location
-        self._auth = None
+    location = field.Url()
 
     def with_auth(self, auth):
         """
@@ -63,7 +52,7 @@ class Remote(Schema):
         General headers to use when making requests to the remote server.
 
         Returns:
-            Dict[Text, Text]: the headers.
+            dict: the headers.
         """
         return {}
 
@@ -80,31 +69,32 @@ class Remote(Schema):
         try:
             response.raise_for_status()
         except requests.exceptions.HTTPError as e:
-            raise UnexpectedStatusCode(str(e), response.status_code)
+            raise UnexpectedStatusCode(str(e) or repr(e), response.status_code)
 
     def request(self, verb, url, headers=None, auth=None, data=None):
         """
         Make a remote request to the given URL.
 
         Args:
-            verb (Text): the HTTP method like 'GET' or 'POST'.
-            url (Text): the URL to request.
-            headers (Dict): extra headers to use.
-            auth (Tuple): authentication to use.
-            data (Text): the payload.
+            verb (str): the HTTP method like 'GET' or 'POST'.
+            url (str): the URL to request.
+            headers (dict): extra headers to use.
+            auth (tuple): authentication to use.
+            data (str): the payload.
 
         Raises:
             RemoteError: when a generic requests exception occurs.
 
         Returns:
-            Dict: the server response.
+            dict: the server response.
         """
         try:
             response = requests.request(verb, url, headers=headers, auth=auth, data=data)
+        except requests.exceptions.RequestException as e:
+            raise RemoteError(str(e) or repr(e))
+        else:
             self.validate_response(response)
             return response
-        except requests.exceptions.RequestException as e:
-            raise RemoteError(str(e))
 
     def get(self):
         """
@@ -114,7 +104,7 @@ class Remote(Schema):
             PassTheSalt: a PassTheSalt instance.
         """
         data = self.request('GET', self.location, headers=self.headers, auth=self.auth)
-        return PassTheSalt.decode(data)
+        return PassTheSalt.from_base64(data)
 
     def put(self, pts):
         """
@@ -126,7 +116,7 @@ class Remote(Schema):
         Returns:
             Response: the response from the server.
         """
-        data = pts.encode()
+        data = pts.to_base64()
         return self.request('PUT', self.location, headers=self.headers, auth=self.auth, data=data)
 
 
@@ -137,21 +127,8 @@ class Stow(Remote):
     See https://github.com/rossmacarthur/stow.
     """
 
-    class Meta:
-        constructor = Function(args=Parameters(('location', str), ('token_location', str)))
-        attributes = Parameters(token=str)
-
-    def __init__(self, location, token_location):
-        """
-        Create a new Remote.
-
-        Args:
-            location (Text): the URL of the remote store.
-            token_location (Text): the URL to renew access to the remote store.
-        """
-        super().__init__(location)
-        self.token_location = token_location
-        self.token = None
+    token = field.Str(required=False)
+    token_location = field.Url()
 
     @property
     def headers(self):
@@ -159,9 +136,11 @@ class Stow(Remote):
         General headers to use when making requests to the remote server.
 
         Returns:
-            Dict[Text, Text]: the headers.
+            dict: the headers.
         """
-        return {'Content-Type': 'application/json'}
+        return {
+            'Content-Type': 'application/json'
+        }
 
     def validate_response(self, response):
         """
@@ -190,12 +169,13 @@ class Stow(Remote):
         """
         Renew the internal token with the configured authentication.
         """
-        data = self.request('GET', self.token_location,
-                            headers=self.headers, auth=self.auth).json()
+        data = self.request(
+            'GET', self.token_location, headers=self.headers, auth=self.auth
+        ).json()
         self.token = data['token']
         self.touch()
 
-    def handle_renew(self, func):
+    def handle_renew(self, f):
         """
         Decorator to recall a function if the token needs to be renewed.
 
@@ -203,17 +183,17 @@ class Stow(Remote):
         recall the function.
 
         Args:
-            func (Callable): the function that accesses some secure resource.
+            f (callable): the function that accesses some secure resource.
 
         Returns:
             the result of the function.
         """
         def decorated_function(*args, **kwargs):
             try:
-                return func(*args, **kwargs)
+                return f(*args, **kwargs)
             except UnauthorizedAccess:
                 self.renew()
-                return func(*args, **kwargs)
+                return f(*args, **kwargs)
 
         return decorated_function
 
@@ -226,10 +206,11 @@ class Stow(Remote):
         """
         @self.handle_renew
         def get():
-            return self.request('GET', self.location, headers=self.headers,
-                                auth=(self.token, 'unused')).json()
+            return self.request(
+                'GET', self.location, headers=self.headers, auth=(self.token, 'unused')
+            ).json()
 
-        return PassTheSalt.decode(get()['value'])
+        return PassTheSalt.from_base64(get()['value'])
 
     def put(self, pts, force=False):
         """
@@ -240,18 +221,21 @@ class Stow(Remote):
             force (bool): whether to ignore any conflicts.
 
         Returns:
-            Dict: the message from the server.
+            dict: the message from the server.
         """
         @self.handle_renew
         def put(pts):
-            payload = {'value': pts.encode()}
+            payload = {
+                'value': pts.to_base64()
+            }
 
             if not force:
                 payload['modified'] = pts.modified.isoformat()
 
             data = json.dumps(payload)
-            return self.request('PUT', self.location, headers=self.headers,
-                                auth=(self.token, 'unused'), data=data)
+            return self.request(
+                'PUT', self.location, headers=self.headers, auth=(self.token, 'unused'), data=data
+            )
 
         try:
             message = put(pts).json().get('message')

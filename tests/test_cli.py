@@ -1,287 +1,315 @@
 import json
 from datetime import datetime
 
+import click
 from click.testing import CliRunner
+from pytest import raises
 
-from passthesalt import Encrypted, Generatable, Login, Master, PassTheSalt
-from passthesalt.cli import cli
+from passthesalt import Config, Encrypted, Generatable, Login, Master, PassTheSalt
+from passthesalt.cli import bail, cli, handle_passthesalt_errors
+from passthesalt.error import PassTheSaltError
 
 
-class TestCli:
+def test_bail():
+    with raises(click.ClickException) as e:
+        bail('test')
+        assert e.message == 'test'
 
-    def test_cli(self):
-        runner = CliRunner()
 
-        with runner.isolated_filesystem():
-            result = runner.invoke(
-                cli,
-                ['--path', 'passthesalt'],
-                input='John Smith\ny\npassword\npassword\n'
-            )
-            assert result.exit_code == 0
-            assert 'Initializing PassTheSalt ...' in result.output
-            assert 'Successfully initialized PassTheSalt!' in result.output
+def test_handle_passthesalt_errors():
 
-            pts = PassTheSalt.read('passthesalt')
-            assert pts.config.owner == 'John Smith'
-            assert pts.config.master
-            assert pts.config.master.validate('password')
+    @handle_passthesalt_errors
+    def raise_passthesalt_error():
+        raise PassTheSaltError('test')
 
-            result = runner.invoke(
-                cli,
-                ['--path', 'passthesalt']
-            )
-            assert result.exit_code == 2
-            assert 'Missing command.' in result.output
+    with raises(click.ClickException) as e:
+        raise_passthesalt_error()
+        assert e.message == 'test'
 
-    def test_pts_add(self):
-        runner = CliRunner()
 
-        with runner.isolated_filesystem():
-            pts = PassTheSalt()
-            pts.config.master = Master.with_validation('password')
-            pts.save('passthesalt')
+def test_cli_initializing():
+    runner = CliRunner()
 
-            # add raw type
-            result = runner.invoke(
-                cli,
-                ['--path', 'passthesalt', 'add', '--type', 'raw'],
-                input='test\nsalt\ny\nn\n'
-            )
-            assert result.exit_code == 0
-            assert 'Secret stored!' in result.output
+    with runner.isolated_filesystem():
+        result = runner.invoke(
+            cli,
+            ['--path', 'passthesalt'],
+            input='John Smith\npassword\npassword\n'
+        )
+        assert result.exit_code == 0
+        assert 'Initializing PassTheSalt ...' in result.output
+        assert 'Successfully initialized PassTheSalt!' in result.output
 
-            pts = PassTheSalt.read('passthesalt')
-            assert 'test' in pts
-            assert isinstance(pts['test'], Generatable)
-            assert pts['test'].salt == 'salt'
+        pts = PassTheSalt.from_path('passthesalt')
+        assert pts.config.owner == 'John Smith'
+        assert pts.config.master
+        assert pts.config.master.is_valid('password')
 
-            # add a login type
-            result = runner.invoke(
-                cli,
-                ['--path', 'passthesalt', 'add'],
-                input='test2\nwww\nwww.test.com\ntest\n\ny\nn\n'
-            )
-            assert result.exit_code == 0
-            assert 'Secret stored!' in result.output
 
-            pts = PassTheSalt.read('passthesalt')
-            assert 'test2' in pts
-            assert isinstance(pts['test2'], Login)
-            assert pts['test2'].salt == 'www.test.com|test|0'
+def test_cli_missing_command():
+    runner = CliRunner()
 
-            # add something and retrieve it
-            result = runner.invoke(
-                cli,
-                ['--path', 'passthesalt', 'add', '--type', 'raw', '--no-clipboard'],
-                input='test3\nsalt\ny\ny\npassword'
-            )
-            assert result.exit_code == 0
-            assert 'Secret stored!' in result.output
-            assert 'M%J+hUIcYqe=LSDtSq0d' in result.output
+    with runner.isolated_filesystem():
+        PassTheSalt().to_path('passthesalt')
 
-            # add something that is already added
-            result = runner.invoke(
-                cli,
-                ['--path', 'passthesalt', 'add'],
-                input='test\n'
-            )
-            assert result.exit_code == 1
-            assert 'Label "test" already exists' in result.output
+        result = runner.invoke(
+            cli,
+            ['--path', 'passthesalt']
+        )
+        assert result.exit_code == 2
+        assert 'Missing command' in result.output
 
-    def test_pts_encrypt(self):
-        runner = CliRunner()
 
-        with runner.isolated_filesystem():
-            pts = PassTheSalt().with_master('password')
-            pts.save('passthesalt')
+def test_pts_add_raw():
+    runner = CliRunner()
 
-            result = runner.invoke(
-                cli,
-                ['--path', 'passthesalt', 'encrypt'],
-                input='test\nsecret\nsecret\npassword\n'
-            )
+    with runner.isolated_filesystem():
+        PassTheSalt().to_path('passthesalt')
+        result = runner.invoke(
+            cli,
+            ['--path', 'passthesalt', 'add', '--type', 'raw'],
+            input='Example\nsalt\ny\nn\n'
+        )
+        assert result.exit_code == 0
+        assert "Stored 'Example'!" in result.output
 
-            assert result.exit_code == 0
-            assert 'Secret stored!' in result.output
+        pts = PassTheSalt.from_path('passthesalt')
+        assert isinstance(pts.get('Example'), Generatable)
+        assert pts.get('Example').salt == 'salt'
 
-            pts = PassTheSalt.read('passthesalt')
-            assert 'test' in pts
-            assert isinstance(pts['test'], Encrypted)
 
-    def test_pts_get(self):
-        runner = CliRunner()
+def test_pts_add_login():
+    runner = CliRunner()
 
-        with runner.isolated_filesystem():
-            pts = PassTheSalt().with_master('password')
-            pts.config.master = Master.with_validation('password')
-            pts.add('test', Generatable('salt'))
-            pts.add('test2', Encrypted.with_secret('verysecret'))
-            pts.save('passthesalt')
+    with runner.isolated_filesystem():
+        PassTheSalt().to_path('passthesalt')
+        result = runner.invoke(
+            cli,
+            ['--path', 'passthesalt', 'add'],
+            input='Example\nwww\nwww.test.com\ntest\n\ny\nn\n'
+        )
+        assert result.exit_code == 0
+        assert "Stored 'Example'!" in result.output
 
-            result = runner.invoke(
-                cli,
-                ['--path', 'passthesalt', 'get', '--no-clipboard'],
-                input='test\npasswor\npasswor\npasswor'
-            )
-            assert result.exit_code == 1
-            assert 'Error: three incorrect attempts.' in result.output
+        pts = PassTheSalt.from_path('passthesalt')
+        assert isinstance(pts.get('Example'), Login)
+        assert pts.get('Example').salt == 'www.test.com|test|0'
 
-            result = runner.invoke(
-                cli,
-                ['--path', 'passthesalt', 'get', '--no-clipboard'],
-                input='test\npasswor\npassword'
-            )
-            assert result.exit_code == 0
-            assert 'M%J+hUIcYqe=LSDtSq0d' in result.output
 
-            result = runner.invoke(
-                cli,
-                ['--path', 'passthesalt', 'get', '--no-clipboard'],
-                input='test\npassword\n'
-            )
-            assert result.exit_code == 0
-            assert 'M%J+hUIcYqe=LSDtSq0d' in result.output
+def test_pts_add_exists():
+    runner = CliRunner()
 
-            result = runner.invoke(
-                cli,
-                ['--path', 'passthesalt', 'get', '--no-clipboard'],
-                input='test2\npassword\n'
-            )
-            assert result.exit_code == 0
-            assert 'verysecret' in result.output
+    with runner.isolated_filesystem():
+        pts = PassTheSalt()
+        pts.add('Example', Generatable(salt='salt'))
+        pts.to_path('passthesalt')
 
-    def test_pts_ls(self):
-        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            ['--path', 'passthesalt', 'add'],
+            input='Example\n'
+        )
+        assert result.exit_code == 1
+        assert "'Example' already exists" in result.output
 
-        with runner.isolated_filesystem():
-            pts = PassTheSalt().with_master('password')
-            pts.save('passthesalt')
 
-            result = runner.invoke(cli, ['--path', 'passthesalt', 'ls'])
-            assert result.exit_code == 0
-            assert 'No stored secrets.' in result.output
+def test_pts_encrypt():
+    runner = CliRunner()
 
-            pts = PassTheSalt.read('passthesalt').with_master('password')
-            pts.add('test', Generatable('salt'))
-            pts.add('test2', Encrypted.with_secret('verysecret'))
-            pts.save('passthesalt')
+    with runner.isolated_filesystem():
+        pts = PassTheSalt(config=Config(master=Master('password')))
+        pts.to_path('passthesalt')
 
-            result = runner.invoke(cli, ['--path', 'passthesalt', 'ls', '--no-header'])
-            assert result.exit_code == 0
-            assert result.output == 'test\ntest2\n'
+        result = runner.invoke(
+            cli,
+            ['--path', 'passthesalt', 'encrypt'],
+            input='Example\nsecret\nsecret\npassword\n'
+        )
+        assert result.exit_code == 0
+        assert "Stored 'Example'!" in result.output
 
-            result = runner.invoke(cli, ['--path', 'passthesalt', 'ls', '-v'])
-            assert result.exit_code == 0
-            assert result.output == 'Label    Kind\n' \
-                                    '-------  -----------\n' \
-                                    'test     generatable\n' \
-                                    'test2    encrypted\n'
+        pts = PassTheSalt.from_path('passthesalt').with_master('password')
+        assert isinstance(pts.get('Example'), Encrypted)
+        assert pts.get('Example').get() == 'secret'
 
-    def test_pts_rm(self):
-        runner = CliRunner()
 
-        with runner.isolated_filesystem():
-            pts = PassTheSalt().with_master('password')
-            pts.add('test', Generatable('salt'))
-            pts.save('passthesalt')
+def test_pts_encrypt_exists():
+    runner = CliRunner()
 
-            result = runner.invoke(
-                cli,
-                ['--path', 'passthesalt', 'rm'],
-                input='test\ny\n'
-            )
-            assert result.exit_code == 0
-            assert 'Removing "test"' in result.output
+    with runner.isolated_filesystem():
+        pts = PassTheSalt()
+        pts.add('Example', Generatable(salt='salt'))
+        pts.to_path('passthesalt')
 
-            pts = PassTheSalt.read('passthesalt')
-            assert 'test' not in pts
+        result = runner.invoke(
+            cli,
+            ['--path', 'passthesalt', 'encrypt'],
+            input='Example\n'
+        )
+        assert result.exit_code == 1
+        assert "'Example' already exists" in result.output
 
-            pts.add('test1', Generatable('salt'))
-            pts.add('test2', Generatable('salt'))
-            pts.add('test3', Generatable('salt'))
-            pts.save('passthesalt')
 
-            result = runner.invoke(
-                cli,
-                ['--path', 'passthesalt', 'rm', 'derp']
-            )
-            assert result.exit_code == 1
-            assert result.output == 'Error: unable to resolve pattern "derp"\n'
+def test_pts_get_generated():
+    runner = CliRunner()
 
-            result = runner.invoke(
-                cli,
-                ['--path', 'passthesalt', 'rm', '^test\d$'],
-                input='y\n'
-            )
-            assert result.exit_code == 0
-            assert 'Removing "test1"' in result.output
-            assert 'Removing "test2"' in result.output
-            assert 'Removing "test3"' in result.output
+    with runner.isolated_filesystem():
+        pts = PassTheSalt(config=Config(master=Master('password')))
+        pts.add('Example', Generatable(salt='salt'))
+        pts.to_path('passthesalt')
 
-    def test_pts_mv(self):
-        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            ['--path', 'passthesalt', 'get', '--no-clipboard'],
+            input='Example\npassword\n'
+        )
+        assert result.exit_code == 0
+        assert 'M%J+hUIcYqe=LSDtSq0d' in result.output
 
-        with runner.isolated_filesystem():
-            pts = PassTheSalt().with_master('password')
-            pts.add('test', Generatable('salt'))
-            pts.save('passthesalt')
 
-            result = runner.invoke(cli, ['--path', 'passthesalt', 'mv', 'test', 'test2'])
-            assert result.exit_code == 0
-            assert '"test" relabeled to "test2"!' in result.output
+def test_pts_get_incorrect_master():
+    runner = CliRunner()
 
-            pts = PassTheSalt.read('passthesalt')
-            assert 'test' not in pts
-            assert 'test2' in pts
-            assert pts['test2'].to_dict(modified=False) == \
-                Generatable('salt').to_dict(modified=False)
-            assert pts['test2'] == Generatable('salt')
+    with runner.isolated_filesystem():
+        pts = PassTheSalt(config=Config(master=Master('password')))
+        pts.add('Example', Generatable(salt='salt'))
+        pts.to_path('passthesalt')
 
-            pts.add('test', Generatable('salt'))
-            pts.save('passthesalt')
+        result = runner.invoke(
+            cli,
+            ['--path', 'passthesalt', 'get', '--no-clipboard'],
+            input='Example\npasswor\npasswor\npasswor\n'
+        )
+        assert result.exit_code == 1
+        assert 'three incorrect attempts' in result.output
 
-            result = runner.invoke(cli, ['--path', 'passthesalt', 'mv', 'test', 'test2'])
-            assert result.exit_code == 1
-            assert 'Error: "test2" already exists' in result.output
 
-    def test_pts_migrate(self):
-        runner = CliRunner()
+def test_pts_get_encrypted():
+    runner = CliRunner()
 
-        with runner.isolated_filesystem():
-            pts = PassTheSalt().with_master('password')
-            pts.add('test', Generatable('salt'))
-            pts.save('passthesalt')
+    with runner.isolated_filesystem():
+        pts = PassTheSalt(config=Config(master=Master('password'))).with_master('password')
+        pts.add('Example', Encrypted('verysecret'))
+        pts.to_path('passthesalt')
 
-            with open('dump.json', 'w') as f:
-                f.write(json.dumps({
-                    'test1': {
-                        'type': 'generatable',
-                        'salt': 'www.test.com|test|0',
-                        'modified': '20160501'
-                    },
-                    'test2': {
-                        'type': 'encrypted',
-                        'secret': 'verysecure',
-                        'modified': '20160502'
-                    }
-                }))
+        result = runner.invoke(
+            cli,
+            ['--path', 'passthesalt', 'get', '--no-clipboard'],
+            input='Example\npassword\n'
+        )
+        assert result.exit_code == 0
+        assert 'verysecret' in result.output
 
-            result = runner.invoke(
-                cli,
-                ['--path', 'passthesalt', 'migrate', '--input-file', 'dump.json'],
-                input='password\n'
-            )
-            assert result.exit_code == 0
-            assert 'Migrated "test1"' in result.output
-            assert 'Migrated "test2"' in result.output
 
-            pts = PassTheSalt.read('passthesalt').with_master('password')
-            assert 'test' in pts
-            assert 'test1' in pts
-            assert pts['test1'].to_dict(modified=False) == \
-                Login('www.test.com', 'test').to_dict(modified=False)
-            assert pts['test1'].modified == datetime(year=2016, month=5, day=1)
-            assert 'test2' in pts
-            assert pts['test2'].get() == 'verysecure'
-            assert pts['test2'].modified == datetime(year=2016, month=5, day=2)
+def test_pts_ls_none():
+    runner = CliRunner()
+
+    with runner.isolated_filesystem():
+        PassTheSalt().to_path('passthesalt')
+        result = runner.invoke(
+            cli,
+            ['--path', 'passthesalt', 'ls']
+        )
+        assert 'No stored secrets' in result.output
+
+
+def test_pts_ls():
+    runner = CliRunner()
+
+    with runner.isolated_filesystem():
+        pts = PassTheSalt().with_master('password')
+        pts.add('Example1', Generatable(salt='salt'))
+        pts.add('Example2', Encrypted('verysecret'))
+        pts.to_path('passthesalt')
+        result = runner.invoke(
+            cli,
+            ['--path', 'passthesalt', 'ls', '-v']
+        )
+        expected = (
+            'Label     Kind\n'
+            '--------  -----------\n'
+            'Example1  generatable\n'
+            'Example2  encrypted\n'
+        )
+        assert result.output == expected
+
+
+def test_pts_rm():
+    runner = CliRunner()
+
+    with runner.isolated_filesystem():
+        pts = PassTheSalt()
+        pts.add('Example', Generatable(salt='salt'))
+        pts.to_path('passthesalt')
+
+        result = runner.invoke(
+            cli,
+            ['--path', 'passthesalt', 'rm'],
+            input='Example\ny\n'
+        )
+        assert result.exit_code == 0
+        assert "Removed 'Example'!" in result.output
+
+
+def test_pts_rm_not_exists():
+    runner = CliRunner()
+
+    with runner.isolated_filesystem():
+        PassTheSalt().to_path('passthesalt')
+
+        result = runner.invoke(
+            cli,
+            ['--path', 'passthesalt', 'rm'],
+            input='Example\n'
+        )
+        assert result.exit_code == 1
+        assert "'Example' does not exist" in result.output
+
+
+def test_pts_rm_multiple_not_exists():
+    runner = CliRunner()
+
+    with runner.isolated_filesystem():
+        PassTheSalt().to_path('passthesalt')
+
+        result = runner.invoke(
+            cli,
+            ['--path', 'passthesalt', 'rm', '--regex'],
+            input='Example\n'
+        )
+        assert result.exit_code == 1
+        assert "Error: unable to resolve pattern 'Example'" in result.output
+
+
+def test_pts_rm_multiple():
+    runner = CliRunner()
+
+    with runner.isolated_filesystem():
+        pts = PassTheSalt()
+        pts.add('Example1', Generatable(salt='salt'))
+        pts.add('Example2', Generatable(salt='salt'))
+        pts.to_path('passthesalt')
+
+        result = runner.invoke(
+            cli,
+            ['--path', 'passthesalt', 'rm', '--regex'],
+            input='Example\ny\n'
+        )
+        assert result.exit_code == 0
+        assert "Removed 'Example1', 'Example2'!" in result.output
+
+
+def test_pts_mv():
+    runner = CliRunner()
+
+    with runner.isolated_filesystem():
+        pts = PassTheSalt()
+        pts.add('Example', Generatable(salt='salt'))
+        pts.to_path('passthesalt')
+
+        result = runner.invoke(
+            cli,
+            ['--path', 'passthesalt', 'mv', 'Example', 'Example2']
+        )
+        assert result.exit_code == 0
+        assert "Renamed 'Example' as 'Example2'!" in result.output

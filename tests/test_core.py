@@ -1,572 +1,419 @@
+import datetime
 import string
+import tempfile
+from unittest import mock
 
+import serde
 from pytest import raises
 
-from passthesalt import (Config, ConfigurationError, ContextError, Encrypted, Generatable,
-                         LabelError, Login, Master, PassTheSalt, SchemaError, Secret)
+from passthesalt import __version__
+from passthesalt.core import (
+    Config, Encrypted, Generatable, Login, Master, PassTheSalt, Secret, version
+)
+from passthesalt.error import ConfigurationError, ContextError, LabelError
+
+
+class SecretSub(Secret):
+    pass
+
+
+def test_version():
+    assert version() == __version__
+
+
+@mock.patch.dict('passthesalt.core.SECRETS', {'secret': SecretSub})
+@mock.patch.dict('passthesalt.core.KINDS', {SecretSub: 'secret'})
+class TestSecret:
+
+    def test_from_dict(self):
+        given = {
+            'kind': 'secret',
+            'modified': '2017-12-29'
+        }
+        expected = SecretSub(
+            modified=datetime.datetime(year=2017, month=12, day=29)
+        )
+        assert Secret.from_dict(given) == expected
+
+    def test_from_dict_invalid_kind(self):
+        with raises(serde.error.DeserializationError):
+            Secret.from_dict({
+                'kind': 'unknown',
+                'modified': '2017-12-29'
+            })
+
+    def test_to_dict(self):
+        given = SecretSub(
+            modified=datetime.datetime(year=2017, month=12, day=29)
+        )
+        expected = {
+            'kind': 'secret',
+            'modified': '2017-12-29'
+        }
+        assert given.to_dict() == expected
+
+    def test_to_dict_unknown_kind(self):
+        class SecretSub2(Secret):
+            pass
+
+        with raises(serde.error.SerializationError):
+            SecretSub2().to_dict()
+
+    def test___getattr__(self):
+        example = Secret()
+
+        with raises(ContextError):
+            example._pts
+
+        with raises(ContextError):
+            example._label
+
+        with raises(AttributeError):
+            example._something
+
+    def test_display(self):
+        example = SecretSub()
+        example.add_context('example', object())
+        assert example.display() == ('example', 'secret', example.modified)
+
+    def test_add_context(self):
+        example = SecretSub()
+        label = 'example'
+        pts = object()
+        example.add_context(label, pts)
+        assert example._label == 'example'
+        assert example._pts == pts
+
+    def test_check_context(self):
+        example = SecretSub()
+
+        with raises(ContextError):
+            example.check_context()
+
+        example.add_context('example', object())
+
+        assert example.check_context() is None
+
+    def test_remove_context(self):
+        example = SecretSub()
+        example.add_context('example', object())
+        example.remove_context()
+
+        with raises(ContextError):
+            example.check_context()
+
+    def test_get(self):
+        with raises(NotImplementedError):
+            Secret().get()
+
+
+class TestGeneratable:
+
+    def test_display(self):
+        modified = datetime.datetime(year=2018, month=12, day=25)
+        secret = Generatable(salt='test', modified=modified)
+        secret._label = 'Example'
+        assert secret.display() == ('Example', 'generatable', modified, 'test')
+
+    def test_get(self):
+        pts = PassTheSalt().with_master('password')
+        secret = Generatable(salt='test')
+        secret.add_context('Example', pts)
+        assert secret.get() == 'CV*2qua!A3rwh0fwf8o*'
+
+
+class TestLogin:
+
+    def test_salt(self):
+        pts = PassTheSalt().with_master('password')
+        secret = Login(domain='www.test.com', username='test')
+        secret.add_context('Example', pts)
+        assert secret.salt == 'www.test.com|test|0'
+        assert secret.get() == 'j4RETtUP7xyQcR%Lc1k+'
+
+
+class TestEncrypted:
+
+    def test___init__(self):
+        secret = Encrypted('verysecure')
+        assert secret.secret == 'verysecure'
+
+    def test__encrypt_and__decrypt(self):
+        pts = PassTheSalt().with_master('password')
+        secret = Encrypted('verysecure')
+        secret.add_context('Example', pts)
+        assert pts.secrets_encrypted is None
+        assert secret._decrypt() == {}
+        secret._encrypt({'Example': secret.secret})
+        assert secret._decrypt() == {'Example': secret.secret}
+
+    def test_add(self):
+        pts = PassTheSalt().with_master('password')
+        secret = Encrypted('verysecure')
+        secret.add_context('Example', pts)
+        assert pts.secrets_encrypted is None
+        secret.add()
+        assert bool(pts.secrets_encrypted)
+        assert not hasattr(secret, 'secret')
+
+    def test_get(self):
+        pts = PassTheSalt().with_master('password')
+        secret = Encrypted('verysecure')
+        secret.add_context('Example', pts)
+        secret.add()
+        assert secret.get() == 'verysecure'
+
+    def test_get_missing(self):
+        pts = PassTheSalt().with_master('password')
+        secret = Encrypted('verysecure')
+        secret.add_context('Example', pts)
+        secret.add()
+        pts.secrets_encrypted = None
+        with raises(LabelError):
+            secret.get()
+
+    def test_remove(self):
+        pts = PassTheSalt().with_master('password')
+        secret = Encrypted('verysecure')
+        secret.add_context('Example', pts)
+        secret.add()
+        secret.remove()
+        assert pts.secrets_encrypted is None
 
 
 class TestMaster:
 
-    def test_load(self):
-        assert Master.from_dict({}) == Master()
-
-        obj = Master.from_dict({'hash': 'thehash', 'salt': 'thesalt'})
-        assert obj.hash == 'thehash'
-        assert obj.salt == 'thesalt'
-
-    def test_with_validation(self):
-        obj = Master.with_validation('password')
-
+    def test___init__(self):
         def is_hexstring(s):
-            return isinstance(s, str) and len(s) == 40 and all(h in string.hexdigits for h in s)
-
-        assert is_hexstring(obj.hash)
-        assert is_hexstring(obj.salt)
-
-    def test_validate(self):
-        obj = Master()
-        assert obj.validate('password')
-
-        obj = Master.with_validation('password')
-        assert obj.validate('password')
-
-
-class TestConfig:
-
-    def test_load(self):
-        assert Config.from_dict({}) == Config()
-
-        config = Config.from_dict({'owner': 'John Smith'})
-        assert config.owner == 'John Smith'
-
-        m = {'hash': 'thehash', 'salt': 'thesalt'}
-        d = {'owner': 'John Smith', 'master': m.copy()}
-        master = Master.from_dict(m)
-        config = Config.from_dict(d)
-        assert config.master == master
-        assert config.owner == 'John Smith'
-        assert config.master.to_dict() == {'hash': 'thehash', 'salt': 'thesalt'}
-        assert config.to_dict() == {'owner': 'John Smith', 'master': {'hash': 'thehash',
-                                                                      'salt': 'thesalt'}}
-
-
-class TestSecret:
-    cls = Secret
-
-    def test___init__(self):
-        with raises(TypeError):
-            self.cls()
-
-    def test_display(self):
-        self.cls.__abstractmethods__ = set()
-
-        pts = PassTheSalt()
-        secret = self.cls()
-
-        secret.add_context('test', pts)
-        assert secret.display() == ('test', 'secret', secret.modified)
-
-    def test_get(self):
-        self.cls.__abstractmethods__ = set()
-
-        secret = self.cls()
-
-        with raises(NotImplementedError):
-            secret.get()
-
-
-class TestGeneratable:
-    cls = Generatable
-
-    def test_to_dict(self):
-        secret = self.cls('salt')
-        assert secret.to_dict(modified=False) == {'kind': 'generatable', 'salt': 'salt',
-                                                  'algorithm': {'version': 1}}
-
-    def test___getattr__(self):
-        secret = self.cls('salt')
-
-        with raises(ContextError):
-            secret._pts
-
-        with raises(ContextError):
-            secret._label
-
-        with raises(AttributeError):
-            secret._derp
-
-    def test_kind(self):
-        secret = self.cls('salt')
-        assert secret.kind == 'generatable'
-
-    def test_display(self):
-        pts = PassTheSalt()
-        secret = self.cls('salt')
-
-        secret.add_context('test', pts)
-        assert secret.display() == ('test', 'generatable', secret.modified, 'salt')
-
-    def test_add_context(self):
-        pts = PassTheSalt()
-        secret = self.cls('salt')
-
-        secret.add_context('test', pts)
-        assert secret._pts == pts
-        assert secret._label == 'test'
-
-    def test_remove_context(self):
-        pts = PassTheSalt()
-        secret = self.cls('salt')
-
-        secret.add_context('test', pts)
-        assert secret._pts == pts
-        assert secret._label == 'test'
-
-        secret.remove_context()
-        with raises(ContextError):
-            secret._pts
-        with raises(ContextError):
-            secret._label
-
-    def test_add(self):
-        pts = PassTheSalt()
-        secret = self.cls('salt')
-
-        with raises(ContextError):
-            secret.add()
-
-        secret.add_context('test', pts)
-        secret.add()
-
-    def test_get(self):
-        pts = PassTheSalt()
-        secret = self.cls('salt')
-
-        with raises(ContextError):
-            secret.get()
-
-        secret.add_context('test', pts)
-        with raises(ConfigurationError):
-            secret.get()
-
-        pts.with_master('password')
-        assert secret.get() == 'M%J+hUIcYqe=LSDtSq0d'
-
-    def test_remove(self):
-        pts = PassTheSalt()
-        secret = self.cls('salt')
-
-        with raises(ContextError):
-            secret.remove()
-
-        secret.add_context('test', pts)
-        secret.remove()
-
-    def test_load(self):
-        d = {'salt': 'salt'}
-        secret = self.cls.from_dict(d)
-        assert d == {}
-        assert isinstance(secret, self.cls)
-
-
-class TestLogin:
-    cls = Login
-
-    def test_to_dict(self):
-        secret = self.cls('github.com', 'johnsmith')
-        assert secret.to_dict(modified=False) == {'kind': 'generatable.login',
-                                                  'domain': 'github.com',
-                                                  'username': 'johnsmith',
-                                                  'algorithm': {'version': 1}}
-
-    def test___init__(self):
-        with raises(ValueError):
-            self.cls('derp', 'johnsmith')
-
-    def test___getattr__(self):
-        secret = self.cls('github.com', 'johnsmith')
-
-        with raises(ContextError):
-            secret._pts
-
-        with raises(ContextError):
-            secret._label
-
-        with raises(AttributeError):
-            secret._derp
-
-    def test_kind(self):
-        secret = self.cls('github.com', 'johnsmith')
-        assert secret.kind == 'generatable.login'
-
-    def test_display(self):
-        pts = PassTheSalt()
-        secret = self.cls('github.com', 'johnsmith')
-
-        secret.add_context('test', pts)
-        assert secret.display() == ('test', 'generatable', secret.modified,
-                                    'github.com|johnsmith|0')
-
-    def test_add_context(self):
-        pts = PassTheSalt()
-        secret = self.cls('github.com', 'johnsmith')
-
-        secret.add_context('test', pts)
-        assert secret._pts == pts
-        assert secret._label == 'test'
-
-    def test_remove_context(self):
-        pts = PassTheSalt()
-        secret = self.cls('github.com', 'johnsmith')
-
-        secret.add_context('test', pts)
-        assert secret._pts == pts
-        assert secret._label == 'test'
-
-        secret.remove_context()
-        with raises(ContextError):
-            secret._pts
-        with raises(ContextError):
-            secret._label
-
-    def test_add(self):
-        pts = PassTheSalt()
-        secret = self.cls('github.com', 'johnsmith')
-
-        with raises(ContextError):
-            secret.add()
-
-        secret.add_context('test', pts)
-        secret.add()
-
-    def test_get(self):
-        pts = PassTheSalt()
-        secret = self.cls('github.com', 'johnsmith')
-
-        with raises(ContextError):
-            secret.get()
-
-        secret.add_context('test', pts)
-        with raises(ConfigurationError):
-            secret.get()
-
-        pts.with_master('password')
-        assert secret.get() == 'x3=NJJP=wfoeyzy9E2c*'
-
-    def test_remove(self):
-        pts = PassTheSalt()
-        secret = self.cls('github.com', 'johnsmith')
-
-        with raises(ContextError):
-            secret.remove()
-
-        secret.add_context('test', pts)
-        secret.remove()
-
-    def test_load(self):
-        d = {'domain': 'github.com', 'username': 'johnsmith', 'iteration': 0}
-        secret = self.cls.from_dict(d)
-        assert d == {}
-        assert isinstance(secret, self.cls)
-
-
-class TestEncrypted:
-    cls = Encrypted
-
-    def test__encrypt(self):
-        pts = PassTheSalt().with_master('password')
-        secret = self.cls.with_secret('verysecret')
-
-        with raises(ContextError):
-            secret._encrypt({})
-
-        secret.add_context('test', pts)
-        secret._encrypt({})
-        assert pts.secrets_encrypted is None
-
-        secret._encrypt({'test': 'verysecret'})
-        assert pts.secrets_encrypted is not None
-
-    def test_kind(self):
-        secret = self.cls()
-        assert secret.kind == 'encrypted'
-
-    def test__decrypt(self):
-        pts = PassTheSalt().with_master('password')
-        secret = self.cls.with_secret('verysecret')
-
-        with raises(ContextError):
-            secret._decrypt()
-
-        secret.add_context('test', pts)
-        assert secret._decrypt() == {}
-
-        secret._encrypt({'test': 'verysecret'})
-        assert secret._decrypt() == {'test': 'verysecret'}
-
-    def test_add(self):
-        pts = PassTheSalt().with_master('password')
-        secret = self.cls.with_secret('verysecret')
-
-        with raises(ContextError):
-            secret.add()
-
-        secret.add_context('test', pts)
-        secret.add()
-
-    def test_get(self):
-        pts = PassTheSalt().with_master('password')
-        secret = self.cls.with_secret('verysecret')
-
-        with raises(ContextError):
-            secret.get()
-
-        secret.add_context('test', pts)
-        with raises(LabelError):
-            secret.get()
-
-        secret.add()
-        assert secret.get() == 'verysecret'
-
-    def test_remove(self):
-        pts = PassTheSalt().with_master('password')
-        secret = self.cls.with_secret('verysecret')
-
-        with raises(ContextError):
-            secret.remove()
-
-        secret.add_context('test', pts)
-        secret.add()
-        secret.remove()
-
-    def test_load(self):
-        d = {}
-        secret = self.cls.from_dict(d)
-        assert d == {}
-        assert isinstance(secret, self.cls)
+            return (
+                isinstance(s, str)
+                and len(s) == 40
+                and all(h in string.hexdigits for h in s)
+            )
+
+        example = Master('password')
+        assert is_hexstring(example.hash)
+        assert is_hexstring(example.salt)
+        assert not hasattr(example, 'password')
+
+    def test_is_valid(self):
+        master = Master('password')
+        assert master.is_valid('password') is True
+        assert master.is_valid('password2') is False
 
 
 class TestPassTheSalt:
 
-    def test_from_dict(self):
-        # from blank dictionary
-        assert PassTheSalt.from_dict({}) == PassTheSalt()
-        assert PassTheSalt().to_dict(modified=False) == {}
+    def test_from_dict_no_secrets(self):
+        given = {
+            'config': {
+                'master': {
+                    'salt': 'b32ad5ad536b2e3b790050845b65311b333e6480',
+                    'hash': '300148d88175b2d9cf52001f29e716de1b3a56ea'
+                },
+                'owner': 'John Smith'
+            },
+            'modified': '2018-12-25'
+        }
+        expected = PassTheSalt(
+            config=Config(
+                owner='John Smith',
+                master=Master.from_dict({
+                    'salt': 'b32ad5ad536b2e3b790050845b65311b333e6480',
+                    'hash': '300148d88175b2d9cf52001f29e716de1b3a56ea'
+                })
+            ),
+            modified=datetime.datetime(year=2018, month=12, day=25)
+        )
+        assert PassTheSalt.from_dict(given) == expected
 
-        # from subdictionary with no secrets
-        assert PassTheSalt.from_dict({'secrets': {}}) == PassTheSalt()
+    def test_from_dict_secrets(self):
+        given = {
+            'config': {
+                'master': {
+                    'salt': 'b32ad5ad536b2e3b790050845b65311b333e6480',
+                    'hash': '300148d88175b2d9cf52001f29e716de1b3a56ea'
+                },
+                'owner': 'John Smith'
+            },
+            'secrets': {
+                'Example': {
+                    'algorithm': {
+                        'version': 1
+                    },
+                    'salt': 'test',
+                    'kind': 'generatable',
+                    'modified': '2018-12-25'
+                }
+            },
+            'modified': '2018-12-25'
+        }
+        expected = PassTheSalt(
+            config=Config(
+                owner='John Smith',
+                master=Master.from_dict({
+                    'salt': 'b32ad5ad536b2e3b790050845b65311b333e6480',
+                    'hash': '300148d88175b2d9cf52001f29e716de1b3a56ea'
+                })
+            )
+        )
+        modified = datetime.datetime(year=2018, month=12, day=25)
+        expected.add('Example', Generatable(modified=modified, salt='test'))
+        expected.modified = modified
+        assert PassTheSalt.from_dict(given) == expected
 
-        # a bad dictionary
-        d = {'secrets': {'test': {'salt': 'salt'}}}
-        with raises(SchemaError):
-            PassTheSalt.from_dict(d)
-
-        d = {'secrets': {'test': {'salt': 'salt', 'kind': 'aroseno'}}}
-        with raises(SchemaError):
-            PassTheSalt.from_dict(d)
-
-        # from dictionary with 1 secret
-        d = {'secrets': {'test': {'salt': 'salt', 'kind': 'generatable'}}}
-        pts0 = PassTheSalt.from_dict(d)
-        assert d == {}
-        pts1 = PassTheSalt()
-        pts1.add('test', Generatable('salt'))
-        assert pts0.to_dict(modified=False) == pts1.to_dict(modified=False)
-        assert pts0 == pts1
-
-    def test___init__(self):
-        pts = PassTheSalt()
-        assert pts.config == Config()
-        assert pts.secrets == dict()
-        assert pts.secrets_encrypted is None
+    def test_save(self):
+        with tempfile.NamedTemporaryFile() as t:
+            pts = PassTheSalt().with_path(t.name)
+            pts.save()
+            assert PassTheSalt.from_path(t.name) == pts
 
     def test_with_master(self):
-        pts = PassTheSalt().with_master('password')
-        assert pts.master_key == 'password'
-
-        def get_password(pts):
-            nonlocal call_count
-            call_count += 1
-            return 'password'
-
-        call_count = 0
-        pts = PassTheSalt().with_master(get_password)
-        assert pts.master_key == 'password'
-        assert pts.master_key == 'password'
-        assert pts.master_key == 'password'
-        assert call_count == 1
-
-    def test_resolve(self):
         pts = PassTheSalt()
-        pts.add('test', Generatable('salt'))
+        assert pts.with_master('password') is pts
+        assert pts._master == 'password'
 
-        # if the label doesn't exist it should raise a LabelError
-        with raises(LabelError):
-            pts.resolve('derp')
-
-        # if you pass in a bad regex it should raise a LabelError
-        with raises(LabelError):
-            pts.resolve('(')
-
-        # all regex matches should return 'test' because it is the only label
-        # matching these things
-        for t in ('t', 'te', 'tes', 'test', '^test$', '[ets]{4}'):
-            assert pts.resolve(pattern=t) == 'test'
-        for t in ('t', 'te', 'tes', 'test'):
-            assert pts.resolve(prefix=t) == 'test'
-
-        pts.add('test2', Generatable('salt'))
-
-        # all these regex matches match multiple things so should raise a
-        # LabelError
-        for t in ('t', 'te', 'tes', '[ets]{4}'):
-            with raises(LabelError):
-                pts.resolve(pattern=t)
-        for t in ('t', 'te', 'tes'):
-            with raises(LabelError):
-                pts.resolve(prefix=t)
-
-        # these match only one label exactly so that should return 'test'
-        for t in ('test', '^test$'):
-            assert pts.resolve(pattern=t) == 'test'
-        assert pts.resolve(prefix='test') == 'test'
-
-    def test_exists(self):
+    def test_with_path(self):
         pts = PassTheSalt()
-        pts.add('test', Generatable('salt'))
+        assert pts.with_path('example') is pts
+        assert pts._path == 'example'
 
-        assert pts.exists(pattern='^test$')
-        assert pts.exists(prefix='t')
-        assert not pts.exists(pattern='^tes$')
-        assert not pts.exists(prefix='e')
-
-    def test___iter__(self):
+    def test_master_key_empty(self):
         pts = PassTheSalt()
-        pts.add('test', Generatable('salt'))
-
-        assert list(pts.__iter__()) == list(pts.secrets.keys())
-
-        for label in pts:
-            assert label == 'test'
-
-    def test___contains__(self):
-        pts = PassTheSalt()
-
-        pts.add('test', Generatable('salt'))
-        assert 'test' in pts
-
-        pts.remove('test')
-        assert 'test' not in pts
-
-    def test___setitem__(self):
-        pts = PassTheSalt()
-
-        secret = Generatable('salt')
-        pts['test'] = secret
-        assert pts.secrets['test'] == secret
-        assert secret._pts == pts
-        assert secret._label == 'test'
-
-        with raises(LabelError):
-            pts['test'] = Generatable('salt')
-
-    def test___getitem__(self):
-        pts = PassTheSalt()
-        secret = Generatable('salt')
-        pts['test'] = secret
-        assert pts['test'] == secret
-        assert pts['^test$'] == secret
-
-    def test___popitem__(self):
-        pts = PassTheSalt()
-        secret = Generatable('salt')
-        pts['test'] = secret
-        assert pts.__popitem__('test') == secret
-        assert 'test' not in pts
-
-    def test___delitem__(self):
-        pts = PassTheSalt()
-        secret = Generatable('salt')
-        pts['test'] = secret
-        del pts['test']
-        assert 'test' not in pts
-
-    def test_master_key(self):
-        pts = PassTheSalt()
-
         with raises(ConfigurationError):
             pts.master_key
 
-        pts.with_master('password')
-        assert pts.master_key == 'password'
-
-        pts.config.owner = 'John Smith'
-        assert pts.master_key == 'John Smith|password'
-
-    def test_labels_with_prefix(self):
+    def test_master_key_no_owner(self):
         pts = PassTheSalt()
+        assert pts.with_master('password').master_key == 'password'
 
-        pts.add('derp', Generatable('salt'))
-        assert pts.labels(prefix='tes') == []
+    def test_master_key_owner(self):
+        pts = PassTheSalt(config=Config(owner='John Smith'))
+        assert pts.with_master('password').master_key == 'John Smith|password'
 
-        pts.add('test', Generatable('salt'))
-        assert pts.labels(prefix='tes') == ['test']
-
-        pts.add('test2', Generatable('salt'))
-        assert sorted(pts.labels(prefix='tes')) == sorted(['test', 'test2'])
-
-    def test_labels_matching_regex(self):
+    def test_master_key_callable_master(self):
         pts = PassTheSalt()
+        assert pts.with_master(lambda x: 'password').master_key == 'password'
 
-        pts.add('derp', Generatable('salt'))
-        pts.add('test', Generatable('salt'))
-        assert pts.labels(pattern='^[ets]{4}$') == ['test']
+    def test_path(self):
+        pts = PassTheSalt().with_path('test')
+        assert pts.path == 'test'
 
-        pts.add('test2', Generatable('salt'))
-        assert sorted(pts.labels(pattern='^[ets]{4}2?$')) == sorted(['test', 'test2'])
-
-    def test_add(self):
+    def test_path_empty(self):
         pts = PassTheSalt()
+        with raises(ConfigurationError):
+            pts.path
 
-        secret = Generatable('salt')
-        pts.add('test', secret)
-        assert pts.secrets['test'] == secret
-        assert secret._pts == pts
-        assert secret._label == 'test'
+    def test_labels_no_pattern(self):
+        pts = PassTheSalt()
+        pts.add('Example', Generatable(salt='test'))
+        assert pts.labels() == ['Example']
 
+    def test_labels_good_pattern(self):
+        pts = PassTheSalt()
+        pts.add('Example', Generatable(salt='test'))
+        pts.add('Example2', Generatable(salt='test'))
+        pts.add('3Example', Generatable(salt='test'))
+        expected = {'Example', 'Example2', '3Example'}
+        assert set(pts.labels(pattern=r'\d?Example\d?')) == expected
+
+    def test_labels_bad_pattern(self):
+        pts = PassTheSalt()
         with raises(LabelError):
-            pts.add('test', Generatable('salt'))
+            pts.labels(pattern='(')
+
+    def test_resolve_not_exists(self):
+        pts = PassTheSalt()
+        with raises(LabelError):
+            pts.resolve(pattern='Example')
+
+    def test_resolve_exact(self):
+        pts = PassTheSalt()
+        pts.add('Example', Generatable(salt='test'))
+        assert pts.resolve(pattern='Example') == 'Example'
+
+    def test_resolve_exists(self):
+        pts = PassTheSalt()
+        pts.add('Example', Generatable(salt='test'))
+        assert pts.resolve(pattern='[aelmpxE]{7}') == 'Example'
+
+    def test_resolve_multiple(self):
+        pts = PassTheSalt()
+        pts.add('Example', Generatable(salt='test'))
+        pts.add('Example2', Generatable(salt='test'))
+        with raises(LabelError):
+            pts.resolve(pattern=r'^Example\d?$')
+
+    def test_resolve_one(self):
+        pts = PassTheSalt()
+        pts.add('Example', Generatable(salt='test'))
+        pts.add('Example2', Generatable(salt='test'))
+        assert pts.resolve(pattern=r'^Example$') == 'Example'
+
+    def test_contains(self):
+        pts = PassTheSalt()
+        pts.add('Example', Generatable(salt='test'))
+        assert pts.contains('Example') is True
+        assert pts.contains('Example2') is False
+
+    def test_add_not_exists(self):
+        pts = PassTheSalt()
+        secret = Generatable(salt='salt')
+        with raises(ContextError):
+            secret.check_context()
+        pts.add('Example', secret)
+        assert secret._pts is pts
+        assert secret._label == 'Example'
+
+    def test_add_exists(self):
+        pts = PassTheSalt()
+        pts.add('Example', Generatable(salt='salt'))
+        with raises(LabelError):
+            pts.add('Example', Generatable(salt='salt'))
 
     def test_get(self):
         pts = PassTheSalt()
-        secret = Generatable('salt')
-        pts.add('test', secret)
-        assert pts.get('test') == secret
-        assert pts.get('^test$') == secret
+        secret = Generatable(salt='salt')
+        pts.add('Example', secret)
+        assert pts.get('Example') is secret
 
     def test_pop(self):
         pts = PassTheSalt()
-        secret = Generatable('salt')
-        pts.add('test', secret)
-        assert pts.pop('test') == secret
-        assert 'test' not in pts
+        secret = Generatable(salt='salt')
+        pts.add('Example', secret)
+        assert pts.pop('Example') is secret
+        assert not pts.contains('Example')
+        with raises(ContextError):
+            secret._pts
+
+    def test_pop_not_exists(self):
+        pts = PassTheSalt()
+        with raises(LabelError):
+            pts.pop('Example')
 
     def test_remove(self):
         pts = PassTheSalt()
-        secret = Generatable('salt')
-        pts.add('test', secret)
-        pts.remove('test')
-        assert 'test' not in pts
+        secret = Generatable(salt='salt')
+        pts.add('Example', secret)
+        assert pts.contains('Example')
+        pts.remove('Example')
+        assert not pts.contains('Example')
+        with raises(ContextError):
+            secret._pts
+        with raises(ContextError):
+            secret._label
 
-    def test_relabel(self):
+    def test_move(self):
         pts = PassTheSalt()
-        secret = Generatable('salt')
-        pts.add('test', secret)
-        pts.relabel('test', 'derp')
-        assert 'test' not in pts
-        assert 'derp' in pts
+        pts.add('Example', Generatable(salt='salt'))
+        assert pts.contains('Example')
+        assert not pts.contains('Example2')
+        pts.move('Example', 'Example2')
+        assert not pts.contains('Example')
+        assert pts.contains('Example2')
 
-        pts.add('test2', secret)
+    def test_move_already_exists(self):
+        pts = PassTheSalt()
+        pts.add('Example', Generatable(salt='salt'))
         with raises(LabelError):
-            pts.relabel('test', 'test2')
+            pts.move('test', 'Example')
