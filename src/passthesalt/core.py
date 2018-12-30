@@ -20,7 +20,7 @@ def version():
     Returns:
         str: the version.
     """
-    from . import __version__
+    from passthesalt import __version__
     return __version__
 
 

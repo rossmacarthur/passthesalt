@@ -1,6 +1,3 @@
-import json
-from datetime import datetime
-
 import click
 from click.testing import CliRunner
 from pytest import raises
