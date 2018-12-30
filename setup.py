@@ -1,75 +1,84 @@
 import io
 import os
 import re
-from setuptools import setup
+
+from setuptools import find_packages, setup
 
 
-def read(*path):
-    """
-    Python 2/3 file reading.
-    """
-    version_file = os.path.join(os.path.dirname(__file__), *path)
-    with io.open(version_file, encoding='utf8') as f:
-        return f.read()
+here = os.path.abspath(os.path.dirname(__file__))
 
+with io.open(os.path.join(here, 'src', 'passthesalt', '__init__.py'), encoding='utf8') as f:
+    about_text = f.read()
 
-def find_version():
-    """
-    Regex search __init__.py so that we do not have to import.
-    """
-    text = read('passthesalt', '__init__.py')
-    match = re.search(r'^__version__ = [\'"]([^\'"]*)[\'"]', text, re.M)
-    if match:
-        return match.group(1)
-    raise RuntimeError('Unable to find version string.')
+metadata = {
+    key: re.search(r'__' + key + r'__ = ["\'](.*?)["\']', about_text).group(1)
+    for key in ('title', 'version', 'url', 'author', 'author_email', 'license', 'description')
+}
 
+metadata['name'] = metadata.pop('title')
 
-version = find_version()
+with io.open(os.path.join(here, 'README.rst'), encoding='utf8') as f:
+    metadata['long_description'] = f.read()
 
-long_description = read('README.rst')
-
+# Primary requirements
 install_requires = [
-    'click>=6.6',
-    'pycrypto>=2.0.0',
-    'pyperclip>=1.5.0',
-    'python-dateutil>=2.0.0',
-    'requests>=2.0.0'
+    'click>=7.0<8.0',
+    'cryptography>=2.0.0<3.0.0',
+    'pyperclip>=1.0.0<2.0.0',
+    'requests>=2.0.0<3.0.0',
+    'serde>=0.3.2<0.4.0',
+    'tabulate>=0.8.0<0.9.0'
 ]
 
+# Development requirements
+lint_requires = [
+    'flake8',
+    'flake8-docstrings',
+    'flake8-isort',
+    'flake8-per-file-ignores',
+    'flake8-quotes',
+    'pep8-naming'
+]
+test_requires = [
+    'pytest>=3.3.0',
+    'pytest-cov'
+]
 entry_points = {
     'console_scripts': [
-        'pts=passthesalt.__main__:cli',
-        'passthesalt=passthesalt.__main__:cli'
+        'pts=passthesalt.cli:cli',
+        'passthesalt=passthesalt.cli:cli'
     ]
 }
 
 setup(
-    name='passthesalt',
-    packages=['passthesalt'],
-    version=version,
+    # Options
     install_requires=install_requires,
+    extras_require={
+        'dev.lint': lint_requires,
+        'dev.test': test_requires
+    },
+    python_requires='>=3.6',
+    packages=find_packages('src'),
     entry_points=entry_points,
-    python_requires='>=2.7',
-    description='Deterministic password generation and password storage.',
-    long_description=long_description,
-    author='Ross MacArthur',
-    author_email='macarthur.ross@gmail.com',
-    license='MIT',
-    url='https://github.com/rossmacarthur/passthesalt',
-    download_url='https://github.com/rossmacarthur/passthesalt/archive/{}.tar.gz'.format(version),
-    keywords='password manager pbkdf2',
+    package_dir={'': 'src'},
+    py_modules=['passthesalt'],
+
+    # Metadata
+    download_url='{url}/archive/{version}.tar.gz'.format(**metadata),
+    project_urls={
+        'Issue Tracker': '{url}/issues'.format(**metadata)
+    },
     classifiers=[
-        'Development Status :: 4 - Beta',
         'Environment :: Console',
         'License :: OSI Approved :: MIT License',
+        'Natural Language :: English',
         'Operating System :: OS Independent',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.3',
-        'Programming Language :: Python :: 3.4',
-        'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6'
-    ]
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: Implementation :: CPython'
+    ],
+    keywords='password manager pbkdf2',
+    **metadata
 )
