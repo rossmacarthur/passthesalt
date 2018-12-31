@@ -1,0 +1,21 @@
+language: python
+matrix:
+  include:
+    - python: 3.6
+    - python: 3.7
+      dist: xenial
+      sudo: true
+
+# command to install dependencies
+install:
+  - make install-dev
+  - if [[ $TRAVIS_PYTHON_VERSION == 3.7 ]]; then pip install codecov; fi
+
+# command to run tests
+script:
+  - make lint
+  - make test
+
+# command to upload coverage
+after_success:
+  - if [[ $TRAVIS_PYTHON_VERSION == 3.7 ]]; then codecov; fi
