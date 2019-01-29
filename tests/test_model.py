@@ -9,8 +9,8 @@ from passthesalt.model import DateTime, ModifiedModel
 class TestDateTime:
 
     def test___init__(self):
-        example = DateTime(required=False)
-        assert example.required is False
+        example = DateTime(validators=[])
+        assert example.validators == []
         assert not hasattr(example, 'format')
 
     def test_serialize(self):

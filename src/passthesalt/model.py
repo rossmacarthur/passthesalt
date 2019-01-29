@@ -5,10 +5,10 @@ Extensions for serde for use in PassTheSalt.
 import datetime
 from base64 import b64decode, b64encode
 
-from serde import Model, field
+from serde import Model, fields
 
 
-class DateTime(field.DateTime):
+class DateTime(fields.DateTime):
     """
     A custom DateTime Field that uses multiple valid formats.
     """
@@ -70,7 +70,7 @@ class ModifiedModel(Model):
     A custom Model that has a modified Field.
     """
 
-    modified = DateTime(default=datetime.datetime.utcnow)
+    modified = fields.Optional(DateTime, default=datetime.datetime.utcnow)
 
     @classmethod
     def from_base64(cls, s, strict=True, **kwargs):

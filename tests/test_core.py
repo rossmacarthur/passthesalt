@@ -10,7 +10,7 @@ from passthesalt import __version__
 from passthesalt.core import (
     Config, Encrypted, Generatable, Login, Master, PassTheSalt, Secret, version
 )
-from passthesalt.error import ConfigurationError, ContextError, LabelError
+from passthesalt.exceptions import ConfigurationError, ContextError, LabelError
 
 
 class SecretSub(Secret):
@@ -36,7 +36,7 @@ class TestSecret:
         assert Secret.from_dict(given) == expected
 
     def test_from_dict_invalid_kind(self):
-        with raises(serde.error.DeserializationError):
+        with raises(serde.exceptions.DeserializationError):
             Secret.from_dict({
                 'kind': 'unknown',
                 'modified': '2017-12-29'
@@ -56,7 +56,7 @@ class TestSecret:
         class SecretSub2(Secret):
             pass
 
-        with raises(serde.error.SerializationError):
+        with raises(serde.exceptions.SerializationError):
             SecretSub2().to_dict()
 
     def test___getattr__(self):

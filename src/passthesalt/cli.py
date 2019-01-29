@@ -16,7 +16,7 @@ from click import confirm, echo, prompt
 from tabulate import tabulate
 
 from passthesalt import Algorithm, Encrypted, Generatable, Login, Master, PassTheSalt, __version__
-from passthesalt.error import LabelError, PassTheSaltError
+from passthesalt.exceptions import LabelError, PassTheSaltError
 from passthesalt.remote import Stow
 
 

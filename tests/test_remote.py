@@ -7,7 +7,7 @@ import requests.exceptions
 from pytest import raises
 
 from passthesalt.core import PassTheSalt
-from passthesalt.error import (
+from passthesalt.exceptions import (
     ConflictingTimestamps, RemoteError, UnauthorizedAccess, UnexpectedStatusCode
 )
 from passthesalt.remote import Remote, Stow
