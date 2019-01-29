@@ -4,7 +4,7 @@ from pytest import raises
 
 from passthesalt import Config, Encrypted, Generatable, Login, Master, PassTheSalt
 from passthesalt.cli import bail, cli, handle_passthesalt_errors
-from passthesalt.error import PassTheSaltError
+from passthesalt.exceptions import PassTheSaltError
 
 
 def test_bail():

@@ -6,10 +6,10 @@ import re
 from hmac import compare_digest
 
 import serde
-from serde import Model, field
+from serde import Model, fields
 
 from passthesalt.crypto import decrypt, encrypt, generate, pbkdf2_hash
-from passthesalt.error import ConfigurationError, ContextError, LabelError
+from passthesalt.exceptions import ConfigurationError, ContextError, LabelError
 from passthesalt.model import ModifiedModel
 
 
@@ -43,8 +43,8 @@ class Secret(ModifiedModel):
             Secret: an instance of Secret.
 
         Raises:
-            `~serde.error.DeserializationError`: when the Secret kind is not
-                valid.
+            `~serde.exceptions.DeserializationError`: when the Secret kind is
+                not valid.
         """
         if cls is Secret:
             kind = d.pop('kind', None)
@@ -52,7 +52,7 @@ class Secret(ModifiedModel):
             try:
                 return SECRETS[kind].from_dict(d, strict=strict)
             except KeyError:
-                raise serde.error.DeserializationError(f'{kind!r} is not a valid Secret kind')
+                raise serde.exceptions.DeserializationError(f'{kind!r} is not a valid Secret kind')
 
         return super().from_dict(d, strict=strict)
 
@@ -69,15 +69,15 @@ class Secret(ModifiedModel):
             dict: the Secret serialized as a dictionary.
 
         Raises:
-            `~serde.error.SerializationError`: when the Secret has an unknown
-                kind.
+            `~serde.exceptions.SerializationError`: when the Secret has an
+                unknown kind.
         """
         d = super().to_dict()
 
         try:
             d['kind'] = KINDS[self.__class__]
         except KeyError:
-            raise serde.error.SerializationError(f'{self.__class__} has an unknown kind')
+            raise serde.exceptions.SerializationError(f'{self.__class__} has an unknown kind')
 
         return d
 
@@ -155,8 +155,8 @@ class Algorithm(Model):
     A secret generation algorithm.
     """
 
-    version = field.Int(default=1)
-    length = field.Int(required=False)
+    version = fields.Optional(fields.Int, default=1)
+    length = fields.Optional(fields.Int)
 
 
 class Generatable(Secret):
@@ -164,8 +164,8 @@ class Generatable(Secret):
     A generatable Secret.
     """
 
-    salt = field.Str()
-    algorithm = field.Nested(Algorithm, default=Algorithm)
+    salt = fields.Str()
+    algorithm = fields.Optional(Algorithm, default=Algorithm)
 
     def display(self):
         """
@@ -196,9 +196,9 @@ class Login(Generatable):
     An account login Secret.
     """
 
-    domain = field.Domain()
-    username = field.Str()
-    iteration = field.Int(required=False)
+    domain = fields.Domain()
+    username = fields.Str()
+    iteration = fields.Optional(fields.Int)
 
     @property
     def salt(self):
@@ -296,8 +296,8 @@ class Master(Model):
     Represents and defines a master password.
     """
 
-    salt = field.Str()
-    hash = field.Str()
+    salt = fields.Str()
+    hash = fields.Str()
 
     def __init__(self, master):
         """
@@ -327,8 +327,8 @@ class Config(Model):
     Represents and defines config for PassTheSalt.
     """
 
-    owner = field.Str(required=False)
-    master = field.Nested(Master, required=False)
+    owner = fields.Optional(fields.Str)
+    master = fields.Optional(Master)
 
 
 class PassTheSalt(ModifiedModel):
@@ -339,10 +339,10 @@ class PassTheSalt(ModifiedModel):
     password storage system.
     """
 
-    config = field.Nested(Config, required=False, default=Config)
-    secrets = field.Dict(field.Str, Secret, required=False, default=dict)
-    secrets_encrypted = field.Str(required=False)
-    version = field.Str(required=False, default=version)
+    config = fields.Optional(Config, default=Config)
+    secrets = fields.Optional(fields.Dict(fields.Str, Secret), default=dict)
+    secrets_encrypted = fields.Optional(fields.Str)
+    version = fields.Optional(fields.Str, default=version)
 
     def __init__(self, *args, **kwargs):
         """

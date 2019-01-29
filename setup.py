@@ -22,12 +22,12 @@ with io.open(os.path.join(here, 'README.rst'), encoding='utf8') as f:
 
 # Primary requirements
 install_requires = [
-    'click>=7.0<8.0',
-    'cryptography>=2.0.0<3.0.0',
-    'pyperclip>=1.0.0<2.0.0',
-    'requests>=2.0.0<3.0.0',
-    'serde>=0.3.2<0.4.0',
-    'tabulate>=0.8.0<0.9.0'
+    'click >=7.0, <8.0',
+    'cryptography >=2.0.0, <3.0.0',
+    'pyperclip >=1.0.0, <2.0.0',
+    'requests >=2.0.0, <3.0.0',
+    'serde[ext] >=0.5.1, <0.6.0',
+    'tabulate >=0.8.0, <0.9.0'
 ]
 
 # Development requirements

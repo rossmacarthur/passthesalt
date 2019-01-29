@@ -5,10 +5,10 @@ Remote configuration for PassTheSalt.
 import json
 
 import requests
-from serde import field
+from serde import fields
 
 from passthesalt.core import PassTheSalt
-from passthesalt.error import (
+from passthesalt.exceptions import (
     ConflictingTimestamps, RemoteError, UnauthorizedAccess, UnexpectedStatusCode
 )
 from passthesalt.model import ModifiedModel
@@ -19,7 +19,7 @@ class Remote(ModifiedModel):
     Configuration for a remote store.
     """
 
-    location = field.Url()
+    location = fields.Url()
 
     def with_auth(self, auth):
         """
@@ -127,8 +127,8 @@ class Stow(Remote):
     See https://github.com/rossmacarthur/stow.
     """
 
-    token = field.Str(required=False)
-    token_location = field.Url()
+    token = fields.Optional(fields.Str)
+    token_location = fields.Url()
 
     @property
     def headers(self):
