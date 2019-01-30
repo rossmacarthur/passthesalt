@@ -1,6 +1,6 @@
-.PHONY: help clean venv install install-dev install-all lint sort-imports test dist release
+.PHONY: help clean install install-dev install-all \
+		lint sort-imports test dist release
 
-PYTHON := python3
 VIRTUAL_ENV := $(or $(VIRTUAL_ENV), $(VIRTUAL_ENV), venv)
 
 help: ## Show this message and exit.
@@ -10,9 +10,6 @@ help: ## Show this message and exit.
 clean: ## Remove all build artifacts.
 	rm -rf build dist wheels venv
 	find . \( -name *.pyc -o -name *.pyo -o -name __pycache__ -o -name *.egg-info \) -exec rm -rf {} +
-
-venv: ## Create virtualenv.
-	virtualenv --python=$(PYTHON) venv
 
 install: ## Install package and all features.
 	$(VIRTUAL_ENV)/bin/pip install -e .
