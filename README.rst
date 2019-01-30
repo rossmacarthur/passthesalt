@@ -54,6 +54,7 @@ The command line interface has the following commands
 ::
 
     add      Add a secret.
+    diff     Compare two stores.
     encrypt  Encrypt a secret.
     get      Retrieve a secret.
     ls       List the secrets.
@@ -62,8 +63,8 @@ The command line interface has the following commands
     push     Update the remote store.
     rm       Remove a secret.
 
-All commands and options are documented in the cli. You can use the
-:code:`--help` option with any command.
+All commands and options are documented in the cli. You can use the ``--help``
+option with any command.
 
 Migrating from version 2.3.0
 ----------------------------
