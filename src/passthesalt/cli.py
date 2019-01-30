@@ -16,7 +16,7 @@ import validators
 from click import confirm, echo, prompt
 from tabulate import tabulate
 
-from passthesalt import Algorithm, Encrypted, Generatable, Login, Master, PassTheSalt, __version__
+from passthesalt import Algorithm, Encrypted, Generatable, Login, Master, PassTheSalt
 from passthesalt.exceptions import LabelError, PassTheSaltError
 from passthesalt.remote import Stow
 
@@ -225,7 +225,7 @@ def pts_ls_(pts, label=None, kind=None, header=True, verbose=1):
     invoke_without_command=True
 )
 @click.version_option(
-    __version__,
+    None,
     '-v', '--version',
     prog_name='passthesalt',
     message='%(prog)s %(version)s'
