@@ -65,6 +65,33 @@ The command line interface has the following commands
 All commands and options are documented in the cli. You can use the
 :code:`--help` option with any command.
 
+Migrating from version 2.3.0
+----------------------------
+
+The storage format change between version 2.x.x and 3.x.x. To migrate to the
+latest version of PassTheSalt you should first dump your 2.x.x store using
+
+::
+
+    pts dump -o passthesalt-v2-dump.json
+
+
+Upgrade your PassTheSalt using
+
+::
+
+    pip install --upgrade passthesalt
+
+
+Migrate the secrets using
+
+::
+
+    pts migrate -i passthesalt-v2-dump.json
+
+Be sure to first verify that your passwords still work! Finally, delete the
+`passthesalt-v2-dump.json` file.
+
 License
 -------
 
