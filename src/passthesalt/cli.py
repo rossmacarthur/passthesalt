@@ -11,6 +11,7 @@ from functools import wraps
 
 import click
 import pyperclip
+import serde
 import validators
 from click import confirm, echo, prompt
 from tabulate import tabulate
@@ -180,6 +181,43 @@ def read_or_init_remote(path):
         ).with_auth(ask_user_for_auth)
 
     return remote
+
+
+def pts_ls_(pts, label=None, kind=None, header=True, verbose=1):
+    """
+    List the secrets in a PassTheSalt store.
+
+    Args:
+        pts (PassTheSalt): the PassTheSalt store.
+        label (str): a label to filter on.
+        kind (str): the kind to filter on (generatable or encrypted)
+        header (bool): whether to print the table header.
+        verbose (int): the verbosity count that determines how much information
+            for each secret is displayed.
+    """
+    labels = pts.labels(pattern=label)
+
+    if not labels:
+        echo('No stored secrets', err=True)
+    else:
+        secrets = []
+
+        for label in sorted(labels):
+            secret = pts.get(label)
+
+            if not kind or secret.kind == kind:
+                secrets.append(secret.display()[:verbose + 1])
+
+        if header:
+            kwargs = {
+                'headers': ('Label', 'Kind', 'Modified', 'Salt')[:verbose + 1]
+            }
+        else:
+            kwargs = {
+                'tablefmt': 'plain',
+            }
+
+        echo(tabulate(secrets, **kwargs))
 
 
 @click.group(
@@ -357,37 +395,12 @@ def pts_get(pts, label, clipboard):
         echo(secret)
 
 
-def pts_ls_(pts, label=None, kind=None, header=True, verbose=1):
-    labels = pts.labels(pattern=label)
-
-    if not labels:
-        echo('No stored secrets', err=True)
-    else:
-        secrets = []
-
-        for label in sorted(labels):
-            secret = pts.get(label)
-
-            if not kind or secret.kind == kind:
-                secrets.append(secret.display()[:verbose + 1])
-
-        if header:
-            kwargs = {
-                'headers': ('Label', 'Kind', 'Modified', 'Salt')[:verbose + 1]
-            }
-        else:
-            kwargs = {
-                'tablefmt': 'plain',
-            }
-
-        echo(tabulate(secrets, **kwargs))
-
-
 @cli.command('ls')
 @click.argument('label', required=False)
 @click.option(
     '--kind', '-k',
-    type=click.Choice(['encrypted', 'generatable'])
+    type=click.Choice(['encrypted', 'generatable']),
+    help='Filter by type of secret.'
 )
 @click.option(
     '--header/--no-header',
@@ -442,7 +455,7 @@ def pts_rm(pts, label, regex, force):
         if not labels:
             raise
 
-        labels_display = ', '.join(map(repr, labels))
+        labels_display = ', '.join(repr(label) for label in labels)
 
         if not force:
             confirm(f'Remove {labels_display}?', abort=True)
@@ -541,16 +554,12 @@ def pts_pull(pts, path, force):
     '--path', '-p',
     type=click.Path(),
     default=DEFAULT_REMOTE_PATH,
-    help='The path to a PassTheSalt remote configuration.'
+    help='The path to a local PassTheSalt store or a remote configuration.'
 )
 @click.option(
     '--kind', '-k',
-    type=click.Choice(['encrypted', 'generatable'])
-)
-@click.option(
-    '--header/--no-header',
-    default=False,
-    help='Whether to display the table header.'
+    type=click.Choice(['encrypted', 'generatable']),
+    help='Filter by type of secret.'
 )
 @click.option(
     '--verbose', '-v',
@@ -559,30 +568,30 @@ def pts_pull(pts, path, force):
 )
 @click.pass_obj
 @handle_passthesalt_errors
-def pts_diff(pts, path, kind, header, verbose):
+def pts_diff(pts, path, kind, verbose):
     """
     Compare two stores.
     """
-    if path:
-        other_pts = PassTheSalt.from_path(path)
-    else:
+    try:
         remote = read_or_init_remote(path)
         other_pts = remote.get().with_path(pts.path)
         remote.to_path(path)
+    except serde.exceptions.DeserializationError:
+        other_pts = PassTheSalt.from_path(path)
 
     diff_left = pts._diff(other_pts)
     diff_right = other_pts._diff(pts)
 
     if diff_left.labels():
         echo('Local store has the following extra/modified secrets:')
-        pts_ls_(diff_left, kind=kind, header=header, verbose=verbose)
+        pts_ls_(diff_left, kind=kind, header=False, verbose=verbose)
 
     if diff_right.labels():
         if diff_left.labels():
             echo()
 
         echo('Remote store has the following extra/modified secrets:')
-        pts_ls_(diff_right, kind=kind, header=header, verbose=verbose)
+        pts_ls_(diff_right, kind=kind, header=False, verbose=verbose)
 
     if diff_left.labels() or diff_right.labels():
         exit(1)
