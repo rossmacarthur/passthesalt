@@ -53,8 +53,8 @@ def test_cli_missing_command():
             cli,
             ['--path', 'passthesalt']
         )
-        assert result.exit_code == 2
-        assert 'Missing command' in result.output
+        assert result.exit_code == 0
+        assert 'Usage: cli [OPTIONS] COMMAND [ARGS]...' in result.output
 
 
 def test_pts_add_raw():
