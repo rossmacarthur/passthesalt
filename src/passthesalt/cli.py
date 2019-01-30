@@ -357,28 +357,7 @@ def pts_get(pts, label, clipboard):
         echo(secret)
 
 
-@cli.command('ls')
-@click.argument('label', required=False)
-@click.option(
-    '--kind', '-k',
-    type=click.Choice(['encrypted', 'generatable'])
-)
-@click.option(
-    '--header/--no-header',
-    default=True,
-    help='Whether to display the table header.'
-)
-@click.option(
-    '--verbose', '-v',
-    count=True,
-    help='Increase amount information displayed.'
-)
-@click.pass_obj
-@handle_passthesalt_errors
-def pts_ls(pts, label, kind, header, verbose):
-    """
-    List the secrets.
-    """
+def pts_ls_(pts, label=None, kind=None, header=True, verbose=1):
     labels = pts.labels(pattern=label)
 
     if not labels:
@@ -402,6 +381,31 @@ def pts_ls(pts, label, kind, header, verbose):
             }
 
         echo(tabulate(secrets, **kwargs))
+
+
+@cli.command('ls')
+@click.argument('label', required=False)
+@click.option(
+    '--kind', '-k',
+    type=click.Choice(['encrypted', 'generatable'])
+)
+@click.option(
+    '--header/--no-header',
+    default=True,
+    help='Whether to display the table header.'
+)
+@click.option(
+    '--verbose', '-v',
+    count=True,
+    help='Increase amount information displayed.'
+)
+@click.pass_obj
+@handle_passthesalt_errors
+def pts_ls(pts, label, kind, header, verbose):
+    """
+    List the secrets.
+    """
+    pts_ls_(pts, label=label, kind=kind, header=header, verbose=verbose)
 
 
 @cli.command('rm')
@@ -530,6 +534,58 @@ def pts_pull(pts, path, force):
         echo('Already up to date')
     else:
         bail('local version is newer than the remote')
+
+
+@cli.command('diff')
+@click.option(
+    '--path', '-p',
+    type=click.Path(),
+    default=DEFAULT_REMOTE_PATH,
+    help='The path to a PassTheSalt remote configuration.'
+)
+@click.option(
+    '--kind', '-k',
+    type=click.Choice(['encrypted', 'generatable'])
+)
+@click.option(
+    '--header/--no-header',
+    default=False,
+    help='Whether to display the table header.'
+)
+@click.option(
+    '--verbose', '-v',
+    count=True,
+    help='Increase amount information displayed.'
+)
+@click.pass_obj
+@handle_passthesalt_errors
+def pts_diff(pts, path, kind, header, verbose):
+    """
+    Compare two stores.
+    """
+    if path:
+        other_pts = PassTheSalt.from_path(path)
+    else:
+        remote = read_or_init_remote(path)
+        other_pts = remote.get().with_path(pts.path)
+        remote.to_path(path)
+
+    diff_left = pts._diff(other_pts)
+    diff_right = other_pts._diff(pts)
+
+    if diff_left.labels():
+        echo('Local store has the following extra/modified secrets:')
+        pts_ls_(diff_left, kind=kind, header=header, verbose=verbose)
+
+    if diff_right.labels():
+        if diff_left.labels():
+            echo()
+
+        echo('Remote store has the following extra/modified secrets:')
+        pts_ls_(diff_right, kind=kind, header=header, verbose=verbose)
+
+    if diff_left.labels() or diff_right.labels():
+        exit(1)
 
 
 @cli.command('migrate', hidden=True)

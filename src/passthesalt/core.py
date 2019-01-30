@@ -589,3 +589,27 @@ class PassTheSalt(ModifiedModel):
             raise LabelError(f'{new_label!r} already exists')
 
         self.add(new_label, self.pop(label))
+
+    def _diff(self, other):
+        """
+        Return the difference between this store and the other.
+
+        The returned PassTheSalt store contains everything in the current store
+        that is not present in the other, and anything that is not equal.
+
+        Warning: this method is private API for a reason. The returned
+        PassTheSalt store is not usable as a store.
+
+        Args:
+            other (PassTheSalt): the store to compare with.
+
+        Returns:
+            PassTheSalt: a store with all the extra / missing secrets.
+        """
+        diff = PassTheSalt()
+
+        for label in self.labels():
+            if label not in other.labels() or self.get(label) != other.get(label):
+                diff.secrets[label] = self.get(label)
+
+        return diff
