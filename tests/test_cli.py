@@ -310,3 +310,27 @@ def test_pts_mv():
         )
         assert result.exit_code == 0
         assert "Renamed 'Example' as 'Example2'!" in result.output
+
+
+def test_pts_diff():
+    runner = CliRunner()
+
+    with runner.isolated_filesystem():
+        pts = PassTheSalt()
+        pts.to_path('passthesalt_other')
+        pts.add('Example', Generatable(salt='salt'))
+        pts.to_path('passthesalt')
+
+        result = runner.invoke(
+            cli,
+            ['--path', 'passthesalt', 'diff', '--path', 'passthesalt_other']
+        )
+        assert result.exit_code == 1
+        assert 'Local store has the following extra/modified secrets:\nExample' in result.output
+
+        result = runner.invoke(
+            cli,
+            ['--path', 'passthesalt_other', 'diff', '--path', 'passthesalt']
+        )
+        assert result.exit_code == 1
+        assert 'Remote store has the following extra/modified secrets:\nExample' in result.output

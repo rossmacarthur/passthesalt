@@ -417,3 +417,12 @@ class TestPassTheSalt:
         pts.add('Example', Generatable(salt='salt'))
         with raises(LabelError):
             pts.move('test', 'Example')
+
+    def test__diff(self):
+        pts = PassTheSalt()
+        other = PassTheSalt()
+        secret = Generatable(salt='salt')
+        pts.add('Example', secret)
+        diff = pts._diff(other)
+        assert diff.get('Example') == secret
+        assert not other._diff(pts).labels()
