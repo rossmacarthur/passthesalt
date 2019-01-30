@@ -59,7 +59,7 @@ lint_requires = [
     'pep8-naming'
 ]
 test_requires = [
-    'pytest>=3.6.0',
+    'pytest >=3.6.0',
     'pytest-cov'
 ]
 
