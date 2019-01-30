@@ -54,6 +54,7 @@ The command line interface has the following commands
 ::
 
     add      Add a secret.
+    diff     Compare two stores.
     encrypt  Encrypt a secret.
     get      Retrieve a secret.
     ls       List the secrets.
@@ -62,8 +63,33 @@ The command line interface has the following commands
     push     Update the remote store.
     rm       Remove a secret.
 
-All commands and options are documented in the cli. You can use the
-:code:`--help` option with any command.
+All commands and options are documented in the cli. You can use the ``--help``
+option with any command.
+
+Migrating from version 2.3.0
+----------------------------
+
+The storage format changed between version 2.x.x and 3.x.x. To migrate to the
+latest version of PassTheSalt you should first dump your 2.x.x store
+
+::
+
+    pts dump -o passthesalt-v2-dump.json
+
+Then upgrade your PassTheSalt
+
+::
+
+    pip install --upgrade passthesalt
+
+Finally, migrate the secrets
+
+::
+
+    pts migrate -i passthesalt-v2-dump.json
+
+Be sure to first verify that your passwords still work! If so then delete the
+``passthesalt-v2-dump.json`` file.
 
 License
 -------

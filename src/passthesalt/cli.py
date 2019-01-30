@@ -270,7 +270,7 @@ def cli(ctx, path):
             pts.save()
             echo('Successfully initialized PassTheSalt!')
         elif ctx.invoked_subcommand is None:
-            ctx.fail('Missing command.')
+            echo(ctx.get_help())
 
     ctx.obj = pts or path
 
