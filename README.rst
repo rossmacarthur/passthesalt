@@ -1,6 +1,18 @@
 PassTheSalt
 =============
 
+.. image:: https://img.shields.io/pypi/v/passthesalt.svg?style=flat-square&colorB=4c1
+    :target: https://pypi.org/project/passthesalt/
+    :alt: PyPI Version
+
+.. image:: https://img.shields.io/travis/rossmacarthur/passthesalt/master.svg?style=flat-square
+    :target: https://travis-ci.org/rossmacarthur/passthesalt
+    :alt: Build Status
+
+.. image:: https://img.shields.io/codecov/c/github/rossmacarthur/passthesalt.svg?style=flat-square
+    :target: https://codecov.io/gh/rossmacarthur/passthesalt
+    :alt: Code Coverage
+
 A command line application for deterministic password generation and password
 storage.
 
