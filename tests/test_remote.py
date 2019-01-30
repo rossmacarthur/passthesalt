@@ -166,7 +166,7 @@ class TestStow:
                 'json.return_value': {'token': 'thetoken'}
             })
             assert remote.renew() is None
-            assert remote.token is 'thetoken'
+            assert remote.token == 'thetoken'
 
     def test_handle_renew(self):
         remote = Stow(
