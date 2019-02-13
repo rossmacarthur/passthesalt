@@ -13,10 +13,10 @@ import click
 import pyperclip
 import serde
 import validators
-from click import confirm, echo, prompt
+from click import confirm, echo
 from tabulate import tabulate
 
-from passthesalt import Algorithm, Encrypted, Generatable, Login, Master, PassTheSalt
+from passthesalt import Algorithm, Encrypted, Generatable, Login, Master, PassTheSalt, Secret
 from passthesalt.exceptions import LabelError, PassTheSaltError
 from passthesalt.remote import Stow
 
@@ -66,6 +66,30 @@ def bail(message):
     Abort the CLI with a message.
     """
     raise click.ClickException(message)
+
+
+def prompt(*args, none_if_default=False, default=None, **kwargs):
+    """
+    Prompts a user for input.
+
+    This is simply a wrapper around click.prompt() to provide the option to
+    return None in the case that the prompt returns the default.
+
+    Args:
+        *args: positional arguments to pass directly to `click.prompt()`.
+        none_if_default (bool): if True then None will be returned in the case
+            that the returned value is the same as the default.
+        default: the input to default to if the user inputs nothing. This is
+            passed directly to `click.prompt()`.
+        **kwargs: keyword arguments to pass directly to `click.prompt()`.
+
+    Returns:
+        the user input.
+    """
+    result = click.prompt(*args, default=default, **kwargs)
+
+    if not none_if_default or result != default:
+        return result
 
 
 def handle_passthesalt_errors(f):
@@ -339,6 +363,45 @@ def pts_add(ctx, label, type, length, version, clipboard):
 
     if confirm('\nRetrieve secret?'):
         ctx.invoke(pts_get, label=label, clipboard=clipboard)
+
+
+@cli.command('edit')
+@click.argument('label', required=False)
+@click.pass_obj
+@handle_passthesalt_errors
+def pts_edit(pts, label):
+    """
+    Edit a secret.
+
+    Edit a secret matching the label LABEL. This will open the secret using the
+    default EDITOR.
+    """
+    if not label:
+        label = prompt('Enter label')
+
+    label = pts.resolve(pattern=label)
+    secret = pts.pop(label)
+
+    if isinstance(secret, Encrypted):
+        new_secret = click.edit(secret.get())
+
+        if new_secret:
+            secret.secret = new_secret
+            pts.add(label, secret)
+        else:
+            raise click.Abort()
+    else:
+        toml = click.edit(secret.to_toml())
+
+        if toml:
+            secret = Secret.from_toml(toml)
+            secret.touch()
+            pts.add(label, secret)
+        else:
+            raise click.Abort()
+
+    pts.save()
+    echo(f'Stored {label!r}!')
 
 
 @cli.command('encrypt')
