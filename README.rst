@@ -1,7 +1,7 @@
 PassTheSalt
 =============
 
-.. image:: https://img.shields.io/pypi/v/passthesalt.svg?style=flat-square&colorB=4c1
+.. image:: https://img.shields.io/pypi/v/passthesalt.svg?style=flat-square
     :target: https://pypi.org/project/passthesalt/
     :alt: PyPI Version
 
@@ -9,7 +9,7 @@ PassTheSalt
     :target: https://travis-ci.org/rossmacarthur/passthesalt
     :alt: Build Status
 
-.. image:: https://img.shields.io/codecov/c/github/rossmacarthur/passthesalt.svg?style=flat-square
+.. image:: https://img.shields.io/codecov/c/github/rossmacarthur/passthesalt/master.svg?style=flat-square
     :target: https://codecov.io/gh/rossmacarthur/passthesalt
     :alt: Code Coverage
 
@@ -55,6 +55,7 @@ The command line interface has the following commands
 
     add      Add a secret.
     diff     Compare two stores.
+    edit     Edit a secret.
     encrypt  Encrypt a secret.
     get      Retrieve a secret.
     ls       List the secrets.
