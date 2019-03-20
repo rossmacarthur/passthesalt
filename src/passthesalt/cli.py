@@ -365,45 +365,6 @@ def pts_add(ctx, label, type, length, version, clipboard):
         ctx.invoke(pts_get, label=label, clipboard=clipboard)
 
 
-@cli.command('edit')
-@click.argument('label', required=False)
-@click.pass_obj
-@handle_passthesalt_errors
-def pts_edit(pts, label):
-    """
-    Edit a secret.
-
-    Edit a secret matching the label LABEL. This will open the secret using the
-    default EDITOR.
-    """
-    if not label:
-        label = prompt('Enter label')
-
-    label = pts.resolve(pattern=label)
-    secret = pts.pop(label)
-
-    if isinstance(secret, Encrypted):
-        new_secret = click.edit(secret.get())
-
-        if new_secret:
-            secret.secret = new_secret
-            pts.add(label, secret)
-        else:
-            raise click.Abort()
-    else:
-        toml = click.edit(secret.to_toml())
-
-        if toml:
-            secret = Secret.from_toml(toml)
-            secret.touch()
-            pts.add(label, secret)
-        else:
-            raise click.Abort()
-
-    pts.save()
-    echo(f'Stored {label!r}!')
-
-
 @cli.command('encrypt')
 @click.argument('label', required=False)
 @click.option('--secret', '-s', help='The secret to store.')
@@ -427,6 +388,69 @@ def pts_encrypt(pts, label, secret):
     pts.add(label, Encrypted(secret))
     pts.save()
     echo(f'Stored {label!r}!')
+
+
+@cli.command('edit')
+@click.argument('label', required=False)
+@click.option(
+    '--clipboard/--no-clipboard',
+    default=True,
+    show_default=True,
+    help='Whether to copy the secret to the clipboard or print it out.'
+)
+@click.pass_context
+@handle_passthesalt_errors
+def pts_edit(ctx, label, clipboard):
+    """
+    Edit a secret.
+
+    Edit a secret matching the label LABEL. This will open the secret using the
+    default EDITOR.
+    """
+    pts = ctx.obj
+
+    if not label:
+        label = prompt('Enter label')
+
+    label = pts.resolve(pattern=label)
+    secret = pts.get(label)
+
+    updated = False
+
+    if isinstance(secret, Encrypted):
+        raw = secret.get()
+        new_raw = click.edit(raw)
+
+        if new_raw:
+            if new_raw != raw:
+                new_secret = Encrypted(new_raw)
+                pts.update(label, new_secret)
+                updated = True
+            else:
+                echo(f'{label!r} was not changed')
+        else:
+            raise click.Abort()
+    else:
+        new_toml = click.edit(secret.to_toml())
+
+        if new_toml:
+            new_secret = Secret.from_toml(new_toml)
+
+            if new_secret != secret:
+                new_secret.touch()  # because Secret.from_toml() doesn't update the modified time.
+                pts.update(label, new_secret)
+                updated = True
+            else:
+                echo(f'{label!r} was not changed')
+        else:
+            raise click.Abort()
+
+    if updated:
+        pts.save()
+        echo(f'Updated {label!r}!')
+
+        if confirm('\nRetrieve secret?'):
+            ctx.invoke(pts_get, label=label, clipboard=clipboard)
 
 
 @cli.command('get')
