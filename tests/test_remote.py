@@ -91,6 +91,7 @@ class TestRemote:
             pts = PassTheSalt(
                 modified=datetime.datetime(year=2018, month=12, day=25)
             )
+            pts.version = '3.0.0'  # the expected data below assumes this hardcoded version...
             expected = (
                 'eyJtb2RpZmllZCI6ICIyMDE4LTEyLTI1IiwgImNvbmZpZyI6IH'
                 't9LCAic2VjcmV0cyI6IHt9LCAidmVyc2lvbiI6ICIzLjAuMCJ9'
