@@ -20,7 +20,7 @@ __all__ = [
     'remote'
 ]
 __title__ = 'passthesalt'
-__version__ = '3.0.0'
+__version__ = '3.1.0'
 __url__ = 'https://github.com/rossmacarthur/passthesalt'
 __author__ = 'Ross MacArthur'
 __author_email__ = 'ross@macarthur.io'
