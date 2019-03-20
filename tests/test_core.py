@@ -418,6 +418,27 @@ class TestPassTheSalt:
         with raises(LabelError):
             pts.move('test', 'Example')
 
+    def test_update_not_exists(self):
+        pts = PassTheSalt()
+        secret = Generatable(salt='salt')
+        with raises(ContextError):
+            secret.check_context()
+        pts.update('Example', secret)
+        assert secret._pts is pts
+        assert secret._label == 'Example'
+
+    def test_update_already_exists(self):
+        pts = PassTheSalt()
+        secret = Generatable(salt='salt')
+        secret2 = Generatable(salt='test')
+        pts.add('Example', secret)
+        pts.update('Example', secret2)
+        assert pts.get('Example') is secret2
+        with raises(ContextError):
+            secret._pts
+        with raises(ContextError):
+            secret._label
+
     def test__diff(self):
         pts = PassTheSalt()
         other = PassTheSalt()

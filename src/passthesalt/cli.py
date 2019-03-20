@@ -13,10 +13,10 @@ import click
 import pyperclip
 import serde
 import validators
-from click import confirm, echo, prompt
+from click import confirm, echo
 from tabulate import tabulate
 
-from passthesalt import Algorithm, Encrypted, Generatable, Login, Master, PassTheSalt
+from passthesalt import Algorithm, Encrypted, Generatable, Login, Master, PassTheSalt, Secret
 from passthesalt.exceptions import LabelError, PassTheSaltError
 from passthesalt.remote import Stow
 
@@ -66,6 +66,30 @@ def bail(message):
     Abort the CLI with a message.
     """
     raise click.ClickException(message)
+
+
+def prompt(*args, none_if_default=False, default=None, **kwargs):
+    """
+    Prompts a user for input.
+
+    This is simply a wrapper around click.prompt() to provide the option to
+    return None in the case that the prompt returns the default.
+
+    Args:
+        *args: positional arguments to pass directly to `click.prompt()`.
+        none_if_default (bool): if True then None will be returned in the case
+            that the returned value is the same as the default.
+        default: the input to default to if the user inputs nothing. This is
+            passed directly to `click.prompt()`.
+        **kwargs: keyword arguments to pass directly to `click.prompt()`.
+
+    Returns:
+        the user input.
+    """
+    result = click.prompt(*args, default=default, **kwargs)
+
+    if not none_if_default or result != default:
+        return result
 
 
 def handle_passthesalt_errors(f):
@@ -364,6 +388,69 @@ def pts_encrypt(pts, label, secret):
     pts.add(label, Encrypted(secret))
     pts.save()
     echo(f'Stored {label!r}!')
+
+
+@cli.command('edit')
+@click.argument('label', required=False)
+@click.option(
+    '--clipboard/--no-clipboard',
+    default=True,
+    show_default=True,
+    help='Whether to copy the secret to the clipboard or print it out.'
+)
+@click.pass_context
+@handle_passthesalt_errors
+def pts_edit(ctx, label, clipboard):
+    """
+    Edit a secret.
+
+    Edit a secret matching the label LABEL. This will open the secret using the
+    default EDITOR.
+    """
+    pts = ctx.obj
+
+    if not label:
+        label = prompt('Enter label')
+
+    label = pts.resolve(pattern=label)
+    secret = pts.get(label)
+
+    updated = False
+
+    if isinstance(secret, Encrypted):
+        raw = secret.get()
+        new_raw = click.edit(raw)
+
+        if new_raw:
+            if new_raw != raw:
+                new_secret = Encrypted(new_raw)
+                pts.update(label, new_secret)
+                updated = True
+            else:
+                echo(f'{label!r} was not changed')
+        else:
+            raise click.Abort()
+    else:
+        new_toml = click.edit(secret.to_toml())
+
+        if new_toml:
+            new_secret = Secret.from_toml(new_toml)
+
+            if new_secret != secret:
+                new_secret.touch()  # because Secret.from_toml() doesn't update the modified time.
+                pts.update(label, new_secret)
+                updated = True
+            else:
+                echo(f'{label!r} was not changed')
+        else:
+            raise click.Abort()
+
+    if updated:
+        pts.save()
+        echo(f'Updated {label!r}!')
+
+        if confirm('\nRetrieve secret?'):
+            ctx.invoke(pts_get, label=label, clipboard=clipboard)
 
 
 @cli.command('get')

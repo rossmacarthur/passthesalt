@@ -90,7 +90,9 @@ class Secret(ModifiedModel):
                 of a PassTheSalt context.
         """
         if item in ('_label', '_pts'):
-            raise ContextError('Secret is not in a PassTheSalt context')
+            raise ContextError(
+                f'{self.__class__.__name__!r} secret is not in a PassTheSalt context'
+            )
 
         return self.__getattribute__(item)
 
@@ -589,6 +591,19 @@ class PassTheSalt(ModifiedModel):
             raise LabelError(f'{new_label!r} already exists')
 
         self.add(new_label, self.pop(label))
+
+    def update(self, label, secret):
+        """
+        Update secret.
+
+        Args:
+            label (str): the label for the secret.
+            secret (Secret): the secret to update with.
+        """
+        if self.contains(label):
+            self.remove(label)
+
+        self.add(label, secret)
 
     def _diff(self, other):
         """

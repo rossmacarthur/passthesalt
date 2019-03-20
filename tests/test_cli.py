@@ -1,3 +1,5 @@
+from unittest import mock
+
 import click
 from click.testing import CliRunner
 from pytest import raises
@@ -145,6 +147,152 @@ def test_pts_encrypt_exists():
         )
         assert result.exit_code == 1
         assert "'Example' already exists" in result.output
+
+
+def pts_edit_generatable_setup():
+    pts = PassTheSalt()
+    pts.add('Example', Generatable(salt='salt'))
+    pts.to_path('passthesalt')
+    return pts
+
+
+def test_pts_edit_generatable():
+    def edit(data):
+        return data.replace('salt = "salt"', 'salt = "test"')
+
+    with mock.patch('click.edit', edit):
+        runner = CliRunner()
+
+        with runner.isolated_filesystem():
+            pts = pts_edit_generatable_setup()
+            result = runner.invoke(
+                cli,
+                ['--path', 'passthesalt', 'edit'],
+                input='Example\nn\n'
+            )
+            assert result.exit_code == 0
+            assert "Updated 'Example'!\n" in result.output
+
+            pts = PassTheSalt.from_path('passthesalt')
+            assert isinstance(pts.get('Example'), Generatable)
+            assert pts.get('Example').salt == 'test'
+
+
+def test_pts_edit_generatable_unchanged():
+    def edit(data):
+        return data
+
+    with mock.patch('click.edit', edit):
+        runner = CliRunner()
+
+        with runner.isolated_filesystem():
+            pts = pts_edit_generatable_setup()
+            result = runner.invoke(
+                cli,
+                ['--path', 'passthesalt', 'edit'],
+                input='Example\nn\n'
+            )
+            assert result.exit_code == 0
+            assert result.output.endswith("'Example' was not changed\n")
+
+            pts = PassTheSalt.from_path('passthesalt')
+            assert isinstance(pts.get('Example'), Generatable)
+            assert pts.get('Example').salt == 'salt'
+
+
+def test_pts_edit_generatable_aborted():
+    def edit(data):
+        return None
+
+    with mock.patch('click.edit', edit):
+        runner = CliRunner()
+
+        with runner.isolated_filesystem():
+            pts = pts_edit_generatable_setup()
+            result = runner.invoke(
+                cli,
+                ['--path', 'passthesalt', 'edit'],
+                input='Example\nn\n'
+            )
+            assert result.exit_code == 1
+            assert result.output.endswith('Aborted!\n')
+
+            pts = PassTheSalt.from_path('passthesalt')
+            assert isinstance(pts.get('Example'), Generatable)
+            assert pts.get('Example').salt == 'salt'
+
+
+def pts_edit_encrypted_setup():
+    pts = PassTheSalt(config=Config(master=Master('password'))).with_master('password')
+    pts.add('Example', Encrypted('verysecret'))
+    pts.to_path('passthesalt')
+    return pts
+
+
+def test_pts_edit_encrypted():
+    def edit(data):
+        return 'notverysecret'
+
+    with mock.patch('click.edit', edit):
+        runner = CliRunner()
+
+        with runner.isolated_filesystem():
+            pts = pts_edit_encrypted_setup()
+            result = runner.invoke(
+                cli,
+                ['--path', 'passthesalt', 'edit'],
+                input='Example\npassword\nn\n'
+            )
+            assert result.exit_code == 0
+            assert "Updated 'Example'!\n" in result.output
+
+            pts = PassTheSalt.from_path('passthesalt').with_master('password')
+            assert isinstance(pts.get('Example'), Encrypted)
+            assert pts.get('Example').get() == 'notverysecret'
+
+
+def test_pts_edit_encrypted_unchanged():
+    def edit(data):
+        return data
+
+    with mock.patch('click.edit', edit):
+        runner = CliRunner()
+
+        with runner.isolated_filesystem():
+            pts = pts_edit_encrypted_setup()
+            result = runner.invoke(
+                cli,
+                ['--path', 'passthesalt', 'edit'],
+                input='Example\npassword\nn\n'
+            )
+            assert result.exit_code == 0
+            assert result.output.endswith("'Example' was not changed\n")
+
+            pts = PassTheSalt.from_path('passthesalt').with_master('password')
+            assert isinstance(pts.get('Example'), Encrypted)
+            assert pts.get('Example').get() == 'verysecret'
+
+
+def test_pts_edit_encrypted_aborted():
+    def edit(data):
+        return None
+
+    with mock.patch('click.edit', edit):
+        runner = CliRunner()
+
+        with runner.isolated_filesystem():
+            pts = pts_edit_encrypted_setup()
+            result = runner.invoke(
+                cli,
+                ['--path', 'passthesalt', 'edit'],
+                input='Example\npassword\nn\n'
+            )
+            assert result.exit_code == 1
+            assert result.output.endswith('Aborted!\n')
+
+            pts = PassTheSalt.from_path('passthesalt').with_master('password')
+            assert isinstance(pts.get('Example'), Encrypted)
+            assert pts.get('Example').get() == 'verysecret'
 
 
 def test_pts_get_generated():
