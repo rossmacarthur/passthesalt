@@ -9,7 +9,10 @@ from serde import fields
 
 from passthesalt.core import PassTheSalt
 from passthesalt.exceptions import (
-    ConflictingTimestamps, RemoteError, UnauthorizedAccess, UnexpectedStatusCode
+    ConflictingTimestamps,
+    RemoteError,
+    UnauthorizedAccess,
+    UnexpectedStatusCode
 )
 from passthesalt.model import ModifiedModel
 

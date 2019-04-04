@@ -1,8 +1,14 @@
 from binascii import hexlify
 
 from passthesalt.crypto import (
-    decrypt, encrypt, generate, generate_key, passlify,
-    passlify_legacy, pbkdf2_hash, pbkdf2_hash_bytes
+    decrypt,
+    encrypt,
+    generate,
+    generate_key,
+    passlify,
+    passlify_legacy,
+    pbkdf2_hash,
+    pbkdf2_hash_bytes
 )
 
 

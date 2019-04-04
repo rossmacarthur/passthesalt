@@ -11,7 +11,14 @@ __license__ = 'MIT'
 __description__ = 'Deterministic password generation and password storage.'
 
 from passthesalt.core import (
-    Algorithm, Config, Encrypted, Generatable, Login, Master, PassTheSalt, Secret
+    Algorithm,
+    Config,
+    Encrypted,
+    Generatable,
+    Login,
+    Master,
+    PassTheSalt,
+    Secret
 )
 
 
