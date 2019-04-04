@@ -5,22 +5,23 @@ The core PassTheSalt module.
 import re
 from hmac import compare_digest
 
-from serde import Model, fields
+from serde import Model as BaseModel
+from serde import fields
 
 from passthesalt import __version__
 from passthesalt.crypto import decrypt, encrypt, generate, pbkdf2_hash
 from passthesalt.exceptions import ConfigurationError, ContextError, LabelError
-from passthesalt.model import ModifiedModel
+from passthesalt.model import Model
 
 
 def major_version(v):
     """
     Return the major version for the given version string.
     """
-    return __version__.split('.')[0]
+    return v.split('.')[0]
 
 
-class Secret(ModifiedModel):
+class Secret(Model):
     """
     A base class for a secret.
     """
@@ -121,7 +122,7 @@ class Secret(ModifiedModel):
         self.check_context()
 
 
-class Algorithm(Model):
+class Algorithm(BaseModel):
     """
     A secret generation algorithm.
     """
@@ -253,7 +254,7 @@ class Encrypted(Secret):
         super().remove()
 
 
-class Master(Model):
+class Master(BaseModel):
     """
     Represents and defines a master password.
     """
@@ -284,7 +285,7 @@ class Master(Model):
         return compare_digest(self.hash, pbkdf2_hash(master, self.salt)[1])
 
 
-class Config(Model):
+class Config(BaseModel):
     """
     Represents and defines config for PassTheSalt.
     """
@@ -293,7 +294,7 @@ class Config(Model):
     master = fields.Optional(Master)
 
 
-class PassTheSalt(ModifiedModel):
+class PassTheSalt(Model):
     """
     An object to store and manage Secrets.
 
@@ -415,7 +416,7 @@ class PassTheSalt(ModifiedModel):
         except AttributeError:
             raise ConfigurationError('no default path is configured')
 
-    def labels(self, pattern=None, ignorecase=True):
+    def labels(self, pattern=None):
         """
         Return the list of labels for secrets.
 
