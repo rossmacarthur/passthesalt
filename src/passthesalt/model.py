@@ -5,7 +5,8 @@ Extensions for serde for use in PassTheSalt.
 import datetime
 from base64 import b64decode, b64encode
 
-from serde import Model, fields
+from serde import Model as BaseModel
+from serde import fields
 
 
 class DateTime(fields.DateTime):
@@ -65,7 +66,7 @@ class DateTime(fields.DateTime):
         raise ValueError(f'datetime {value!r} does not match any valid formats')
 
 
-class ModifiedModel(Model):
+class Model(BaseModel):
     """
     A custom Model that has a modified Field.
     """
@@ -75,7 +76,7 @@ class ModifiedModel(Model):
     @classmethod
     def from_base64(cls, s, strict=True, **kwargs):
         """
-        Create a PassTheSalt from a base64 encoded string.
+        Create a Model from a base64 encoded string.
 
         Args:
             s (str): the base64 encoded input string.
@@ -84,14 +85,14 @@ class ModifiedModel(Model):
             **kwargs: extra keyword arguments passed directly to `json.loads()`.
 
         Returns:
-            PassTheSalt: a new PassTheSalt instance.
+            Model: a new Model instance.
         """
         return cls.from_json(b64decode(s.encode()).decode('utf-8'), strict=strict, **kwargs)
 
     @classmethod
     def from_path(cls, p, strict=True, **kwargs):
         """
-        Create a PassTheSalt from the given file path.
+        Create a Model from the given file path.
 
         Args:
             p (str): the file path to read from.
@@ -100,14 +101,14 @@ class ModifiedModel(Model):
             **kwargs: extra keyword arguments passed directly to `json.loads()`.
 
         Returns:
-            PassTheSalt: a new PassTheSalt instance.
+            Model: a new Model instance.
         """
         with open(p) as f:
             return cls.from_json(f.read(), strict=strict, **kwargs)
 
     def to_base64(self, dict=None, **kwargs):
         """
-        Base64 encode a JSON dumped representation of this PassTheSalt.
+        Base64 encode a JSON dumped representation of this Model.
 
         Args:
             dict (type): the class of the deserialized dictionary. This defaults
@@ -116,13 +117,13 @@ class ModifiedModel(Model):
             **kwargs: extra keyword arguments passed directly to `json.dumps()`.
 
         Returns:
-            str: the base64 encoded representation of the PassTheSalt store.
+            str: the base64 encoded representation of the Model store.
         """
         return b64encode(self.to_json(dict=dict, **kwargs).encode()).decode('ascii')
 
     def to_path(self, p, dict=None, **kwargs):
         """
-        Write this PassTheSalt store to the given path.
+        Write this Model store to the given path.
 
         Args:
             p (str): the file path to write to

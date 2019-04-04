@@ -14,10 +14,10 @@ from passthesalt.exceptions import (
     UnauthorizedAccess,
     UnexpectedStatusCode
 )
-from passthesalt.model import ModifiedModel
+from passthesalt.model import Model
 
 
-class Remote(ModifiedModel):
+class Remote(Model):
     """
     Configuration for a remote store.
     """
