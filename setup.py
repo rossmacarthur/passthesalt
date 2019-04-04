@@ -40,7 +40,7 @@ install_requires = [
     'cryptography >=2.0.0, <3.0.0',
     'pyperclip >=1.0.0, <2.0.0',
     'requests >=2.0.0, <3.0.0',
-    'serde[ext,toml] >=0.5.1, <0.6.0',
+    'serde[ext,toml] >=0.6.1, <0.7.0',
     'tabulate >=0.8.0, <0.9.0'
 ]
 entry_points = {

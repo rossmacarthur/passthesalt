@@ -1,15 +1,11 @@
 import datetime
 import string
 import tempfile
-from unittest import mock
 
 import serde
 from pytest import raises
 
-from passthesalt import __version__
-from passthesalt.core import (
-    Config, Encrypted, Generatable, Login, Master, PassTheSalt, Secret, version
-)
+from passthesalt.core import Config, Encrypted, Generatable, Login, Master, PassTheSalt, Secret
 from passthesalt.exceptions import ConfigurationError, ContextError, LabelError
 
 
@@ -17,17 +13,11 @@ class SecretSub(Secret):
     pass
 
 
-def test_version():
-    assert version() == __version__
-
-
-@mock.patch.dict('passthesalt.core.SECRETS', {'secret': SecretSub})
-@mock.patch.dict('passthesalt.core.KINDS', {SecretSub: 'secret'})
 class TestSecret:
 
     def test_from_dict(self):
         given = {
-            'kind': 'secret',
+            'kind': 'secretsub',
             'modified': '2017-12-29'
         }
         expected = SecretSub(
@@ -47,17 +37,10 @@ class TestSecret:
             modified=datetime.datetime(year=2017, month=12, day=29)
         )
         expected = {
-            'kind': 'secret',
+            'kind': 'secretsub',
             'modified': '2017-12-29'
         }
         assert given.to_dict() == expected
-
-    def test_to_dict_unknown_kind(self):
-        class SecretSub2(Secret):
-            pass
-
-        with raises(serde.exceptions.SerializationError):
-            SecretSub2().to_dict()
 
     def test___getattr__(self):
         example = Secret()
@@ -74,7 +57,7 @@ class TestSecret:
     def test_display(self):
         example = SecretSub()
         example.add_context('example', object())
-        assert example.display() == ('example', 'secret', example.modified)
+        assert example.display() == ('example', 'secretsub', example.modified)
 
     def test_add_context(self):
         example = SecretSub()
