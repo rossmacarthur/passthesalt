@@ -2,11 +2,6 @@
 PassTheSalt is a deterministic password generation and password storage system.
 """
 
-from passthesalt.core import (
-    Algorithm, Config, Encrypted, Generatable, Login, Master, PassTheSalt, Secret
-)
-
-
 __all__ = [
     'Algorithm',
     'Config',
@@ -26,3 +21,8 @@ __author__ = 'Ross MacArthur'
 __author_email__ = 'ross@macarthur.io'
 __license__ = 'MIT'
 __description__ = 'Deterministic password generation and password storage.'
+
+
+from passthesalt.core import (
+    Algorithm, Config, Encrypted, Generatable, Login, Master, PassTheSalt, Secret
+)

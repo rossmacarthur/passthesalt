@@ -5,23 +5,19 @@ The core PassTheSalt module.
 import re
 from hmac import compare_digest
 
-import serde
 from serde import Model, fields
 
+from passthesalt import __version__
 from passthesalt.crypto import decrypt, encrypt, generate, pbkdf2_hash
 from passthesalt.exceptions import ConfigurationError, ContextError, LabelError
 from passthesalt.model import ModifiedModel
 
 
-def version():
+def major_version(v):
     """
-    Return the current PassTheSalt version.
-
-    Returns:
-        str: the version.
+    Return the major version for the given version string.
     """
-    from passthesalt import __version__
-    return __version__
+    return __version__.split('.')[0]
 
 
 class Secret(ModifiedModel):
@@ -29,57 +25,30 @@ class Secret(ModifiedModel):
     A base class for a secret.
     """
 
-    @classmethod
-    def from_dict(cls, d, strict=True):
+    class Meta:
         """
-        Convert a dictionary to a Secret.
-
-        Args:
-            d (dict): a serialized version of this Model.
-            strict (bool): if set to False then no exception will be raised when
-                unknown dictionary keys are present.
-
-        Returns:
-            Secret: an instance of Secret.
-
-        Raises:
-            `~serde.exceptions.DeserializationError`: when the Secret kind is
-                not valid.
+        Serde Meta class to allow Secret tagging.
         """
-        if cls is Secret:
-            kind = d.pop('kind', None)
 
-            try:
-                return SECRETS[kind].from_dict(d, strict=strict)
-            except KeyError:
-                raise serde.exceptions.DeserializationError(f'{kind!r} is not a valid Secret kind')
+        tag = 'kind'
 
-        return super().from_dict(d, strict=strict)
+        def variants(self):
+            """
+            Return a list of Secret variants.
+            """
+            return self.model.__subclasses_recursed__()
 
-    def to_dict(self, dict=None):
-        """
-        Convert this Secret to a dictionary.
+        def tag_for(self, variant):
+            """
+            Return the tag for the given variant.
+            """
+            segments = ()
 
-        Args:
-            dict (type): the class of the deserialized dictionary. This defaults
-                to an `OrderedDict` so that the fields will be returned in the
-                order they were defined on the Model.
+            while variant and not self.is_owner(variant):
+                segments = (variant.__name__.lower(),) + segments
+                variant = variant._parent
 
-        Returns:
-            dict: the Secret serialized as a dictionary.
-
-        Raises:
-            `~serde.exceptions.SerializationError`: when the Secret has an
-                unknown kind.
-        """
-        d = super().to_dict()
-
-        try:
-            d['kind'] = KINDS[self.__class__]
-        except KeyError:
-            raise serde.exceptions.SerializationError(f'{self.__class__} has an unknown kind')
-
-        return d
+            return '.'.join(segments)
 
     def __getattr__(self, item):
         """
@@ -103,7 +72,7 @@ class Secret(ModifiedModel):
         Returns:
             (str, str): the label and the kind.
         """
-        return (self._label, KINDS[self.__class__].split('.')[0], self.modified)
+        return (self._label, self._meta.tag_for(self.__class__).split('.')[0], self.modified)
 
     def add_context(self, label, pts):
         """
@@ -284,15 +253,6 @@ class Encrypted(Secret):
         super().remove()
 
 
-SECRETS = {
-    'encrypted': Encrypted,
-    'generatable': Generatable,
-    'generatable.login': Login
-}
-
-KINDS = {cls: kind for kind, cls in SECRETS.items()}
-
-
 class Master(Model):
     """
     Represents and defines a master password.
@@ -344,7 +304,7 @@ class PassTheSalt(ModifiedModel):
     config = fields.Optional(Config, default=Config)
     secrets = fields.Optional(fields.Dict(fields.Str, Secret), default=dict)
     secrets_encrypted = fields.Optional(fields.Str)
-    version = fields.Optional(fields.Str, default=version)
+    version = fields.Constant(major_version(__version__), normalizers=[major_version])
 
     def __init__(self, *args, **kwargs):
         """
@@ -352,7 +312,6 @@ class PassTheSalt(ModifiedModel):
         """
         super().__init__(*args, **kwargs)
         self._master = None
-        self.version = version()
 
     @classmethod
     def from_dict(cls, d, strict=True):
