@@ -8,7 +8,7 @@ from passthesalt.crypto import (
     passlify,
     passlify_legacy,
     pbkdf2_hash,
-    pbkdf2_hash_bytes
+    pbkdf2_hash_bytes,
 )
 
 
@@ -17,7 +17,9 @@ def test_pbkdf2_hash_bytes():
         b'#\x1a\xfb}\xcd.\x86\x0c\xfdX\xab\x137+\xd1,'
         b'\x920v\xc3Y\x8a\x12\x19`2\x0fo\xec\x8aV\x98'
     )
-    assert pbkdf2_hash_bytes('password', b'salt', iterations=1024, length=32) == expected
+    assert (
+        pbkdf2_hash_bytes('password', b'salt', iterations=1024, length=32) == expected
+    )
 
 
 def test_pbkdf2_hash_own_salt():

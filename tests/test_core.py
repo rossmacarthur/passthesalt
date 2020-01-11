@@ -5,7 +5,15 @@ import tempfile
 import serde
 from pytest import raises
 
-from passthesalt.core import Config, Encrypted, Generatable, Login, Master, PassTheSalt, Secret
+from passthesalt.core import (
+    Config,
+    Encrypted,
+    Generatable,
+    Login,
+    Master,
+    PassTheSalt,
+    Secret,
+)
 from passthesalt.exceptions import ConfigurationError, ContextError, LabelError
 
 
@@ -14,32 +22,18 @@ class SecretSub(Secret):
 
 
 class TestSecret:
-
     def test_from_dict(self):
-        given = {
-            'kind': 'secretsub',
-            'modified': '2017-12-29'
-        }
-        expected = SecretSub(
-            modified=datetime.datetime(year=2017, month=12, day=29)
-        )
+        given = {'kind': 'secretsub', 'modified': '2017-12-29'}
+        expected = SecretSub(modified=datetime.datetime(year=2017, month=12, day=29))
         assert Secret.from_dict(given) == expected
 
     def test_from_dict_invalid_kind(self):
         with raises(serde.exceptions.DeserializationError):
-            Secret.from_dict({
-                'kind': 'unknown',
-                'modified': '2017-12-29'
-            })
+            Secret.from_dict({'kind': 'unknown', 'modified': '2017-12-29'})
 
     def test_to_dict(self):
-        given = SecretSub(
-            modified=datetime.datetime(year=2017, month=12, day=29)
-        )
-        expected = {
-            'kind': 'secretsub',
-            'modified': '2017-12-29'
-        }
+        given = SecretSub(modified=datetime.datetime(year=2017, month=12, day=29))
+        expected = {'kind': 'secretsub', 'modified': '2017-12-29'}
         assert given.to_dict() == expected
 
     def test___getattr__(self):
@@ -91,7 +85,6 @@ class TestSecret:
 
 
 class TestGeneratable:
-
     def test_display(self):
         modified = datetime.datetime(year=2018, month=12, day=25)
         secret = Generatable(salt='test', modified=modified)
@@ -106,7 +99,6 @@ class TestGeneratable:
 
 
 class TestLogin:
-
     def test_salt(self):
         pts = PassTheSalt().with_master('password')
         secret = Login(domain='www.test.com', username='test')
@@ -116,7 +108,6 @@ class TestLogin:
 
 
 class TestEncrypted:
-
     def test___init__(self):
         secret = Encrypted('verysecure')
         assert secret.secret == 'verysecure'
@@ -165,7 +156,6 @@ class TestEncrypted:
 
 
 class TestMaster:
-
     def test___init__(self):
         def is_hexstring(s):
             return (
@@ -186,27 +176,28 @@ class TestMaster:
 
 
 class TestPassTheSalt:
-
     def test_from_dict_no_secrets(self):
         given = {
             'config': {
                 'master': {
                     'salt': 'b32ad5ad536b2e3b790050845b65311b333e6480',
-                    'hash': '300148d88175b2d9cf52001f29e716de1b3a56ea'
+                    'hash': '300148d88175b2d9cf52001f29e716de1b3a56ea',
                 },
-                'owner': 'John Smith'
+                'owner': 'John Smith',
             },
-            'modified': '2018-12-25'
+            'modified': '2018-12-25',
         }
         expected = PassTheSalt(
             config=Config(
                 owner='John Smith',
-                master=Master.from_dict({
-                    'salt': 'b32ad5ad536b2e3b790050845b65311b333e6480',
-                    'hash': '300148d88175b2d9cf52001f29e716de1b3a56ea'
-                })
+                master=Master.from_dict(
+                    {
+                        'salt': 'b32ad5ad536b2e3b790050845b65311b333e6480',
+                        'hash': '300148d88175b2d9cf52001f29e716de1b3a56ea',
+                    }
+                ),
             ),
-            modified=datetime.datetime(year=2018, month=12, day=25)
+            modified=datetime.datetime(year=2018, month=12, day=25),
         )
         assert PassTheSalt.from_dict(given) == expected
 
@@ -215,29 +206,29 @@ class TestPassTheSalt:
             'config': {
                 'master': {
                     'salt': 'b32ad5ad536b2e3b790050845b65311b333e6480',
-                    'hash': '300148d88175b2d9cf52001f29e716de1b3a56ea'
+                    'hash': '300148d88175b2d9cf52001f29e716de1b3a56ea',
                 },
-                'owner': 'John Smith'
+                'owner': 'John Smith',
             },
             'secrets': {
                 'Example': {
-                    'algorithm': {
-                        'version': 1
-                    },
+                    'algorithm': {'version': 1},
                     'salt': 'test',
                     'kind': 'generatable',
-                    'modified': '2018-12-25'
+                    'modified': '2018-12-25',
                 }
             },
-            'modified': '2018-12-25'
+            'modified': '2018-12-25',
         }
         expected = PassTheSalt(
             config=Config(
                 owner='John Smith',
-                master=Master.from_dict({
-                    'salt': 'b32ad5ad536b2e3b790050845b65311b333e6480',
-                    'hash': '300148d88175b2d9cf52001f29e716de1b3a56ea'
-                })
+                master=Master.from_dict(
+                    {
+                        'salt': 'b32ad5ad536b2e3b790050845b65311b333e6480',
+                        'hash': '300148d88175b2d9cf52001f29e716de1b3a56ea',
+                    }
+                ),
             )
         )
         modified = datetime.datetime(year=2018, month=12, day=25)

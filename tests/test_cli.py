@@ -16,7 +16,6 @@ def test_bail():
 
 
 def test_handle_passthesalt_errors():
-
     @handle_passthesalt_errors
     def raise_passthesalt_error():
         raise PassTheSaltError('test')
@@ -31,9 +30,7 @@ def test_cli_initializing():
 
     with runner.isolated_filesystem():
         result = runner.invoke(
-            cli,
-            ['--path', 'passthesalt'],
-            input='John Smith\npassword\npassword\n'
+            cli, ['--path', 'passthesalt'], input='John Smith\npassword\npassword\n'
         )
         assert result.exit_code == 0
         assert 'Initializing PassTheSalt ...' in result.output
@@ -51,10 +48,7 @@ def test_cli_missing_command():
     with runner.isolated_filesystem():
         PassTheSalt().to_path('passthesalt')
 
-        result = runner.invoke(
-            cli,
-            ['--path', 'passthesalt']
-        )
+        result = runner.invoke(cli, ['--path', 'passthesalt'])
         assert result.exit_code == 0
         assert 'Usage: cli [OPTIONS] COMMAND [ARGS]...' in result.output
 
@@ -67,7 +61,7 @@ def test_pts_add_raw():
         result = runner.invoke(
             cli,
             ['--path', 'passthesalt', 'add', '--type', 'raw'],
-            input='Example\nsalt\ny\nn\n'
+            input='Example\nsalt\ny\nn\n',
         )
         assert result.exit_code == 0
         assert "Stored 'Example'!" in result.output
@@ -85,7 +79,7 @@ def test_pts_add_login():
         result = runner.invoke(
             cli,
             ['--path', 'passthesalt', 'add'],
-            input='Example\nwww\nwww.test.com\ntest\n\ny\nn\n'
+            input='Example\nwww\nwww.test.com\ntest\n\ny\nn\n',
         )
         assert result.exit_code == 0
         assert "Stored 'Example'!" in result.output
@@ -103,11 +97,7 @@ def test_pts_add_exists():
         pts.add('Example', Generatable(salt='salt'))
         pts.to_path('passthesalt')
 
-        result = runner.invoke(
-            cli,
-            ['--path', 'passthesalt', 'add'],
-            input='Example\n'
-        )
+        result = runner.invoke(cli, ['--path', 'passthesalt', 'add'], input='Example\n')
         assert result.exit_code == 1
         assert "'Example' already exists" in result.output
 
@@ -122,7 +112,7 @@ def test_pts_encrypt():
         result = runner.invoke(
             cli,
             ['--path', 'passthesalt', 'encrypt'],
-            input='Example\nsecret\nsecret\npassword\n'
+            input='Example\nsecret\nsecret\npassword\n',
         )
         assert result.exit_code == 0
         assert "Stored 'Example'!" in result.output
@@ -141,9 +131,7 @@ def test_pts_encrypt_exists():
         pts.to_path('passthesalt')
 
         result = runner.invoke(
-            cli,
-            ['--path', 'passthesalt', 'encrypt'],
-            input='Example\n'
+            cli, ['--path', 'passthesalt', 'encrypt'], input='Example\n'
         )
         assert result.exit_code == 1
         assert "'Example' already exists" in result.output
@@ -166,9 +154,7 @@ def test_pts_edit_generatable():
         with runner.isolated_filesystem():
             pts = pts_edit_generatable_setup()
             result = runner.invoke(
-                cli,
-                ['--path', 'passthesalt', 'edit'],
-                input='Example\nn\n'
+                cli, ['--path', 'passthesalt', 'edit'], input='Example\nn\n'
             )
             assert result.exit_code == 0
             assert "Updated 'Example'!\n" in result.output
@@ -188,9 +174,7 @@ def test_pts_edit_generatable_unchanged():
         with runner.isolated_filesystem():
             pts = pts_edit_generatable_setup()
             result = runner.invoke(
-                cli,
-                ['--path', 'passthesalt', 'edit'],
-                input='Example\nn\n'
+                cli, ['--path', 'passthesalt', 'edit'], input='Example\nn\n'
             )
             assert result.exit_code == 0
             assert result.output.endswith("'Example' was not changed\n")
@@ -210,9 +194,7 @@ def test_pts_edit_generatable_aborted():
         with runner.isolated_filesystem():
             pts = pts_edit_generatable_setup()
             result = runner.invoke(
-                cli,
-                ['--path', 'passthesalt', 'edit'],
-                input='Example\nn\n'
+                cli, ['--path', 'passthesalt', 'edit'], input='Example\nn\n'
             )
             assert result.exit_code == 1
             assert result.output.endswith('Aborted!\n')
@@ -239,9 +221,7 @@ def test_pts_edit_encrypted():
         with runner.isolated_filesystem():
             pts = pts_edit_encrypted_setup()
             result = runner.invoke(
-                cli,
-                ['--path', 'passthesalt', 'edit'],
-                input='Example\npassword\nn\n'
+                cli, ['--path', 'passthesalt', 'edit'], input='Example\npassword\nn\n'
             )
             assert result.exit_code == 0
             assert "Updated 'Example'!\n" in result.output
@@ -261,9 +241,7 @@ def test_pts_edit_encrypted_unchanged():
         with runner.isolated_filesystem():
             pts = pts_edit_encrypted_setup()
             result = runner.invoke(
-                cli,
-                ['--path', 'passthesalt', 'edit'],
-                input='Example\npassword\nn\n'
+                cli, ['--path', 'passthesalt', 'edit'], input='Example\npassword\nn\n'
             )
             assert result.exit_code == 0
             assert result.output.endswith("'Example' was not changed\n")
@@ -283,9 +261,7 @@ def test_pts_edit_encrypted_aborted():
         with runner.isolated_filesystem():
             pts = pts_edit_encrypted_setup()
             result = runner.invoke(
-                cli,
-                ['--path', 'passthesalt', 'edit'],
-                input='Example\npassword\nn\n'
+                cli, ['--path', 'passthesalt', 'edit'], input='Example\npassword\nn\n'
             )
             assert result.exit_code == 1
             assert result.output.endswith('Aborted!\n')
@@ -306,7 +282,7 @@ def test_pts_get_generated():
         result = runner.invoke(
             cli,
             ['--path', 'passthesalt', 'get', '--no-clipboard'],
-            input='Example\npassword\n'
+            input='Example\npassword\n',
         )
         assert result.exit_code == 0
         assert 'M%J+hUIcYqe=LSDtSq0d' in result.output
@@ -323,7 +299,7 @@ def test_pts_get_incorrect_master():
         result = runner.invoke(
             cli,
             ['--path', 'passthesalt', 'get', '--no-clipboard'],
-            input='Example\npasswor\npasswor\npasswor\n'
+            input='Example\npasswor\npasswor\npasswor\n',
         )
         assert result.exit_code == 1
         assert 'three incorrect attempts' in result.output
@@ -333,14 +309,16 @@ def test_pts_get_encrypted():
     runner = CliRunner()
 
     with runner.isolated_filesystem():
-        pts = PassTheSalt(config=Config(master=Master('password'))).with_master('password')
+        pts = PassTheSalt(config=Config(master=Master('password'))).with_master(
+            'password'
+        )
         pts.add('Example', Encrypted('verysecret'))
         pts.to_path('passthesalt')
 
         result = runner.invoke(
             cli,
             ['--path', 'passthesalt', 'get', '--no-clipboard'],
-            input='Example\npassword\n'
+            input='Example\npassword\n',
         )
         assert result.exit_code == 0
         assert 'verysecret' in result.output
@@ -351,10 +329,7 @@ def test_pts_ls_none():
 
     with runner.isolated_filesystem():
         PassTheSalt().to_path('passthesalt')
-        result = runner.invoke(
-            cli,
-            ['--path', 'passthesalt', 'ls']
-        )
+        result = runner.invoke(cli, ['--path', 'passthesalt', 'ls'])
         assert 'No stored secrets' in result.output
 
 
@@ -366,10 +341,7 @@ def test_pts_ls():
         pts.add('Example1', Generatable(salt='salt'))
         pts.add('Example2', Encrypted('verysecret'))
         pts.to_path('passthesalt')
-        result = runner.invoke(
-            cli,
-            ['--path', 'passthesalt', 'ls', '-v']
-        )
+        result = runner.invoke(cli, ['--path', 'passthesalt', 'ls', '-v'])
         expected = (
             'Label     Kind\n'
             '--------  -----------\n'
@@ -388,9 +360,7 @@ def test_pts_rm():
         pts.to_path('passthesalt')
 
         result = runner.invoke(
-            cli,
-            ['--path', 'passthesalt', 'rm'],
-            input='Example\ny\n'
+            cli, ['--path', 'passthesalt', 'rm'], input='Example\ny\n'
         )
         assert result.exit_code == 0
         assert "Removed 'Example'!" in result.output
@@ -402,11 +372,7 @@ def test_pts_rm_not_exists():
     with runner.isolated_filesystem():
         PassTheSalt().to_path('passthesalt')
 
-        result = runner.invoke(
-            cli,
-            ['--path', 'passthesalt', 'rm'],
-            input='Example\n'
-        )
+        result = runner.invoke(cli, ['--path', 'passthesalt', 'rm'], input='Example\n')
         assert result.exit_code == 1
         assert "'Example' does not exist" in result.output
 
@@ -418,9 +384,7 @@ def test_pts_rm_multiple_not_exists():
         PassTheSalt().to_path('passthesalt')
 
         result = runner.invoke(
-            cli,
-            ['--path', 'passthesalt', 'rm', '--regex'],
-            input='Example\n'
+            cli, ['--path', 'passthesalt', 'rm', '--regex'], input='Example\n'
         )
         assert result.exit_code == 1
         assert "Error: unable to resolve pattern 'Example'" in result.output
@@ -436,9 +400,7 @@ def test_pts_rm_multiple():
         pts.to_path('passthesalt')
 
         result = runner.invoke(
-            cli,
-            ['--path', 'passthesalt', 'rm', '--regex'],
-            input='Example\ny\n'
+            cli, ['--path', 'passthesalt', 'rm', '--regex'], input='Example\ny\n'
         )
         assert result.exit_code == 0
         assert "Removed 'Example1', 'Example2'!" in result.output
@@ -453,8 +415,7 @@ def test_pts_mv():
         pts.to_path('passthesalt')
 
         result = runner.invoke(
-            cli,
-            ['--path', 'passthesalt', 'mv', 'Example', 'Example2']
+            cli, ['--path', 'passthesalt', 'mv', 'Example', 'Example2']
         )
         assert result.exit_code == 0
         assert "Renamed 'Example' as 'Example2'!" in result.output
@@ -470,15 +431,19 @@ def test_pts_diff():
         pts.to_path('passthesalt')
 
         result = runner.invoke(
-            cli,
-            ['--path', 'passthesalt', 'diff', '--path', 'passthesalt_other']
+            cli, ['--path', 'passthesalt', 'diff', '--path', 'passthesalt_other']
         )
         assert result.exit_code == 1
-        assert 'Local store has the following extra/modified secrets:\nExample' in result.output
+        assert (
+            'Local store has the following extra/modified secrets:\nExample'
+            in result.output
+        )
 
         result = runner.invoke(
-            cli,
-            ['--path', 'passthesalt_other', 'diff', '--path', 'passthesalt']
+            cli, ['--path', 'passthesalt_other', 'diff', '--path', 'passthesalt']
         )
         assert result.exit_code == 1
-        assert 'Remote store has the following extra/modified secrets:\nExample' in result.output
+        assert (
+            'Remote store has the following extra/modified secrets:\nExample'
+            in result.output
+        )

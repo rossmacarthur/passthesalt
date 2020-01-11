@@ -34,7 +34,9 @@ class PassTheSaltError(Exception):
         """
         Return the canonical string representation of this PassTheSaltError.
         """
-        return f'{self.__class__.__module__}.{self.__class__.__name__}({self.message!r})'
+        return (
+            f'{self.__class__.__module__}.{self.__class__.__name__}({self.message!r})'
+        )
 
 
 class LabelError(PassTheSaltError):

@@ -12,7 +12,7 @@ from passthesalt.exceptions import (
     ConflictingTimestamps,
     RemoteError,
     UnauthorizedAccess,
-    UnexpectedStatusCode
+    UnexpectedStatusCode,
 )
 from passthesalt.model import Model
 
@@ -92,7 +92,9 @@ class Remote(Model):
             dict: the server response.
         """
         try:
-            response = requests.request(verb, url, headers=headers, auth=auth, data=data)
+            response = requests.request(
+                verb, url, headers=headers, auth=auth, data=data
+            )
         except requests.exceptions.RequestException as e:
             raise RemoteError(str(e) or repr(e))
         else:
@@ -120,7 +122,9 @@ class Remote(Model):
             Response: the response from the server.
         """
         data = pts.to_base64()
-        return self.request('PUT', self.location, headers=self.headers, auth=self.auth, data=data)
+        return self.request(
+            'PUT', self.location, headers=self.headers, auth=self.auth, data=data
+        )
 
 
 class Stow(Remote):
@@ -141,9 +145,7 @@ class Stow(Remote):
         Returns:
             dict: the headers.
         """
-        return {
-            'Content-Type': 'application/json'
-        }
+        return {'Content-Type': 'application/json'}
 
     def validate_response(self, response):
         """
@@ -191,6 +193,7 @@ class Stow(Remote):
         Returns:
             the result of the function.
         """
+
         def decorated_function(*args, **kwargs):
             try:
                 return f(*args, **kwargs)
@@ -207,6 +210,7 @@ class Stow(Remote):
         Returns:
             PassTheSalt: a PassTheSalt instance.
         """
+
         @self.handle_renew
         def get():
             return self.request(
@@ -226,18 +230,21 @@ class Stow(Remote):
         Returns:
             dict: the message from the server.
         """
+
         @self.handle_renew
         def put(pts):
-            payload = {
-                'value': pts.to_base64()
-            }
+            payload = {'value': pts.to_base64()}
 
             if not force:
                 payload['modified'] = pts.modified.isoformat()
 
             data = json.dumps(payload)
             return self.request(
-                'PUT', self.location, headers=self.headers, auth=(self.token, 'unused'), data=data
+                'PUT',
+                self.location,
+                headers=self.headers,
+                auth=(self.token, 'unused'),
+                data=data,
             )
 
         try:

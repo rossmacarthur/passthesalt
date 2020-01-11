@@ -32,7 +32,7 @@ def pbkdf2_hash_bytes(password, salt, iterations=2048, length=20):
         length=length,
         salt=salt,
         iterations=iterations,
-        backend=default_backend()
+        backend=default_backend(),
     ).derive(password.encode())
 
 
@@ -118,11 +118,17 @@ def passlify_legacy(b):
     Returns:
         str: the password.
     """
+
     def shiftlify(b, chars, shift=0):
         b = [(byte + shift) % 256 for byte in b]
         return ''.join(chars[byte % len(chars)] for byte in b)
 
-    groups = [string.ascii_lowercase, string.ascii_uppercase, string.digits, '!@#$%^&*_+-=']
+    groups = [
+        string.ascii_lowercase,
+        string.ascii_uppercase,
+        string.digits,
+        '!@#$%^&*_+-=',
+    ]
     chars = ''.join(groups)
     password = shiftlify(b, chars)
 
@@ -143,7 +149,9 @@ def passlify_legacy(b):
     return password
 
 
-def passlify(b, lowers=True, uppers=True, digits=True, extras='!@#$%^&*_+-=', startswith=None):
+def passlify(
+    b, lowers=True, uppers=True, digits=True, extras='!@#$%^&*_+-=', startswith=None
+):
     """
     Create a password from a bytes object.
 
@@ -179,7 +187,7 @@ def passlify(b, lowers=True, uppers=True, digits=True, extras='!@#$%^&*_+-=', st
     chars = ''.join(groups)
 
     def shift(i):
-        return 7 * ((i + 1)**2 + (i + 1)) / 2
+        return 7 * ((i + 1) ** 2 + (i + 1)) / 2
 
     def rotate(b):
         b = [int(byte + shift(i)) % 256 for i, byte in enumerate(b)]

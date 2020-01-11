@@ -1,4 +1,8 @@
-from passthesalt.exceptions import ConflictingTimestamps, PassTheSaltError, UnauthorizedAccess
+from passthesalt.exceptions import (
+    ConflictingTimestamps,
+    PassTheSaltError,
+    UnauthorizedAccess,
+)
 
 
 def test_errors():

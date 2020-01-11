@@ -21,6 +21,7 @@ install-all: install-dev ## Install package and all development dependencies.
 	$(VIRTUAL_ENV)/bin/pip install twine
 
 lint: ## Run all lints.
+	$(VIRTUAL_ENV)/bin/black --target-version py36 --skip-string-normalization .
 	$(VIRTUAL_ENV)/bin/flake8 --max-complexity 12 .
 
 sort-imports: ## Sort import statements according to isort configuration.

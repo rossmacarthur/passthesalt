@@ -87,7 +87,9 @@ class Model(BaseModel):
         Returns:
             Model: a new Model instance.
         """
-        return cls.from_json(b64decode(s.encode()).decode('utf-8'), strict=strict, **kwargs)
+        return cls.from_json(
+            b64decode(s.encode()).decode('utf-8'), strict=strict, **kwargs
+        )
 
     @classmethod
     def from_path(cls, p, strict=True, **kwargs):

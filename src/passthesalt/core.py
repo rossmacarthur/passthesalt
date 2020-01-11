@@ -73,7 +73,11 @@ class Secret(Model):
         Returns:
             (str, str): the label and the kind.
         """
-        return (self._label, self._meta.tag_for(self.__class__).split('.')[0], self.modified)
+        return (
+            self._label,
+            self._meta.tag_for(self.__class__).split('.')[0],
+            self.modified,
+        )
 
     def add_context(self, label, pts):
         """
@@ -159,7 +163,7 @@ class Generatable(Secret):
             self.salt,
             self._pts.master_key,
             version=self.algorithm.version,
-            length=self.algorithm.length
+            length=self.algorithm.length,
         )
 
 

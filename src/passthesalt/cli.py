@@ -16,7 +16,15 @@ import validators
 from click import confirm, echo
 from tabulate import tabulate
 
-from passthesalt import Algorithm, Encrypted, Generatable, Login, Master, PassTheSalt, Secret
+from passthesalt import (
+    Algorithm,
+    Encrypted,
+    Generatable,
+    Login,
+    Master,
+    PassTheSalt,
+    Secret,
+)
 from passthesalt.exceptions import LabelError, PassTheSaltError
 from passthesalt.remote import Stow
 
@@ -105,6 +113,7 @@ def handle_passthesalt_errors(f):
     Returns:
         function: the decorated function.
     """
+
     @wraps(f)
     def decorated_function(*args, **kwargs):
         try:
@@ -129,7 +138,7 @@ def clear_clipboard(timeout):
         stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
-        shell=True
+        shell=True,
     )
 
 
@@ -201,7 +210,7 @@ def read_or_init_remote(path):
         echo('Initializing PassTheSalt remote configuration ...')
         remote = Stow(
             location=prompt('Enter location URL', type=URL),
-            token_location=prompt('Enter token renew URL', type=URL)
+            token_location=prompt('Enter token renew URL', type=URL),
         ).with_auth(ask_user_for_auth)
 
     return remote
@@ -224,18 +233,17 @@ def pts_ls_(pts, label=None, kind=None, header=True, verbose=1):
     if not labels:
         echo('No stored secrets', err=True)
     else:
+        n = verbose + 1
         secrets = []
 
         for label in sorted(labels):
             secret = pts.get(label)
 
             if not kind or secret.kind == kind:
-                secrets.append(secret.display()[:verbose + 1])
+                secrets.append(secret.display()[:n])
 
         if header:
-            kwargs = {
-                'headers': ('Label', 'Kind', 'Modified', 'Salt')[:verbose + 1]
-            }
+            kwargs = {'headers': ('Label', 'Kind', 'Modified', 'Salt')[:n]}
         else:
             kwargs = {
                 'tablefmt': 'plain',
@@ -246,19 +254,17 @@ def pts_ls_(pts, label=None, kind=None, header=True, verbose=1):
 
 @click.group(
     context_settings={'help_option_names': ['-h', '--help']},
-    invoke_without_command=True
+    invoke_without_command=True,
 )
 @click.version_option(
-    None,
-    '-v', '--version',
-    prog_name='passthesalt',
-    message='%(prog)s %(version)s'
+    None, '-v', '--version', prog_name='passthesalt', message='%(prog)s %(version)s'
 )
 @click.option(
-    '--path', '-p',
+    '--path',
+    '-p',
     type=click.Path(),
     default=DEFAULT_PATH,
-    help='The path to the PassTheSalt store.'
+    help='The path to the PassTheSalt store.',
 )
 @click.pass_context
 @handle_passthesalt_errors
@@ -276,7 +282,9 @@ def cli(ctx, path):
     pts = None
 
     try:
-        pts = PassTheSalt.from_path(path).with_master(ask_user_for_master).with_path(path)
+        pts = (
+            PassTheSalt.from_path(path).with_master(ask_user_for_master).with_path(path)
+        )
     except OSError:
         pass
 
@@ -286,11 +294,13 @@ def cli(ctx, path):
             echo('Initializing PassTheSalt ...')
             pts = PassTheSalt().with_master(ask_user_for_master).with_path(path)
             pts.config.owner = prompt('Please enter your name')
-            pts.config.master = Master(prompt(
-                'Please enter the master password',
-                confirmation_prompt=True,
-                hide_input=True
-            ))
+            pts.config.master = Master(
+                prompt(
+                    'Please enter the master password',
+                    confirmation_prompt=True,
+                    hide_input=True,
+                )
+            )
             pts.save()
             echo('Successfully initialized PassTheSalt!')
         elif ctx.invoked_subcommand is None:
@@ -302,28 +312,26 @@ def cli(ctx, path):
 @cli.command('add')
 @click.argument('label', required=False)
 @click.option(
-    '--type', '-t',
+    '--type',
+    '-t',
     type=click.Choice(['raw', 'login']),
     default='login',
-    help='The type of generated secret.'
+    help='The type of generated secret.',
 )
+@click.option('--length', '-l', type=int, help='The length of the generated secret.')
 @click.option(
-    '--length', '-l',
-    type=int,
-    help='The length of the generated secret.'
-)
-@click.option(
-    '--version', '-v',
+    '--version',
+    '-v',
     type=click.Choice(['0', '1']),
     default='1',
     show_default=True,
-    help='The algorithm version to use.'
+    help='The algorithm version to use.',
 )
 @click.option(
     '--clipboard/--no-clipboard',
     default=True,
     show_default=True,
-    help='Whether to copy the secret to the clipboard or print it out.'
+    help='Whether to copy the secret to the clipboard or print it out.',
 )
 @click.pass_context
 @handle_passthesalt_errors
@@ -348,13 +356,10 @@ def pts_add(ctx, label, type, length, version, clipboard):
             domain=prompt('Enter domain name', type=DOMAIN),
             username=prompt('Enter username'),
             iteration=prompt('Enter iteration', default=0),
-            algorithm=algorithm
+            algorithm=algorithm,
         )
     else:
-        secret = Generatable(
-            salt=prompt('Enter salt'),
-            algorithm=algorithm
-        )
+        secret = Generatable(salt=prompt('Enter salt'), algorithm=algorithm)
 
     confirm(f'Store {secret.salt!r} as {label!r}?', abort=True)
     pts.add(label, secret)
@@ -396,7 +401,7 @@ def pts_encrypt(pts, label, secret):
     '--clipboard/--no-clipboard',
     default=True,
     show_default=True,
-    help='Whether to copy the secret to the clipboard or print it out.'
+    help='Whether to copy the secret to the clipboard or print it out.',
 )
 @click.pass_context
 @handle_passthesalt_errors
@@ -459,7 +464,7 @@ def pts_edit(ctx, label, clipboard):
     '--clipboard/--no-clipboard',
     default=True,
     show_default=True,
-    help='Whether to copy the secret to the clipboard or print it out.'
+    help='Whether to copy the secret to the clipboard or print it out.',
 )
 @click.pass_obj
 @handle_passthesalt_errors
@@ -485,19 +490,16 @@ def pts_get(pts, label, clipboard):
 @cli.command('ls')
 @click.argument('label', required=False)
 @click.option(
-    '--kind', '-k',
+    '--kind',
+    '-k',
     type=click.Choice(['encrypted', 'generatable']),
-    help='Filter by type of secret.'
+    help='Filter by type of secret.',
 )
 @click.option(
-    '--header/--no-header',
-    default=True,
-    help='Whether to display the table header.'
+    '--header/--no-header', default=True, help='Whether to display the table header.'
 )
 @click.option(
-    '--verbose', '-v',
-    count=True,
-    help='Increase amount information displayed.'
+    '--verbose', '-v', count=True, help='Increase amount information displayed.'
 )
 @click.pass_obj
 @handle_passthesalt_errors
@@ -511,14 +513,10 @@ def pts_ls(pts, label, kind, header, verbose):
 @cli.command('rm')
 @click.argument('label', required=False)
 @click.option(
-    '--regex', '-r',
-    is_flag=True,
-    help='Match labels using LABEL as a regex pattern.'
+    '--regex', '-r', is_flag=True, help='Match labels using LABEL as a regex pattern.'
 )
 @click.option(
-    '--force', '-f',
-    is_flag=True,
-    help='Do not ask for confirmation before removing.'
+    '--force', '-f', is_flag=True, help='Do not ask for confirmation before removing.'
 )
 @click.pass_obj
 @handle_passthesalt_errors
@@ -582,16 +580,13 @@ def pts_mv(pts, label, new_label):
 
 @cli.command('push')
 @click.option(
-    '--path', '-p',
+    '--path',
+    '-p',
     type=click.Path(),
     default=DEFAULT_REMOTE_PATH,
-    help='The path to the PassTheSalt remote configuration.'
+    help='The path to the PassTheSalt remote configuration.',
 )
-@click.option(
-    '--force', '-f',
-    is_flag=True,
-    help='Ignore any conflicts.'
-)
+@click.option('--force', '-f', is_flag=True, help='Ignore any conflicts.')
 @click.pass_obj
 @handle_passthesalt_errors
 def pts_push(pts, path, force):
@@ -606,16 +601,13 @@ def pts_push(pts, path, force):
 
 @cli.command('pull')
 @click.option(
-    '--path', '-p',
+    '--path',
+    '-p',
     type=click.Path(),
     default=DEFAULT_REMOTE_PATH,
-    help='The path to the PassTheSalt remote configuration.'
+    help='The path to the PassTheSalt remote configuration.',
 )
-@click.option(
-    '--force', '-f',
-    is_flag=True,
-    help='Ignore any conflicts.'
-)
+@click.option('--force', '-f', is_flag=True, help='Ignore any conflicts.')
 @click.pass_obj
 @handle_passthesalt_errors
 def pts_pull(pts, path, force):
@@ -638,20 +630,20 @@ def pts_pull(pts, path, force):
 
 @cli.command('diff')
 @click.option(
-    '--path', '-p',
+    '--path',
+    '-p',
     type=click.Path(),
     default=DEFAULT_REMOTE_PATH,
-    help='The path to a local PassTheSalt store or a remote configuration.'
+    help='The path to a local PassTheSalt store or a remote configuration.',
 )
 @click.option(
-    '--kind', '-k',
+    '--kind',
+    '-k',
     type=click.Choice(['encrypted', 'generatable']),
-    help='Filter by type of secret.'
+    help='Filter by type of secret.',
 )
 @click.option(
-    '--verbose', '-v',
-    count=True,
-    help='Increase amount information displayed.'
+    '--verbose', '-v', count=True, help='Increase amount information displayed.'
 )
 @click.pass_obj
 @handle_passthesalt_errors
@@ -686,9 +678,10 @@ def pts_diff(pts, path, kind, verbose):
 
 @cli.command('migrate', hidden=True)
 @click.option(
-    '-i', '--input-file',
+    '-i',
+    '--input-file',
     type=click.Path(exists=True, dir_okay=False),
-    help='The input data file.'
+    help='The input data file.',
 )
 @click.pass_obj
 @handle_passthesalt_errors
@@ -715,22 +708,19 @@ def pts_migrate(pts, input_file):
                     domain=domain,
                     username=username,
                     iteration=int(iteration),
-                    algorithm=legacy_algorithm
+                    algorithm=legacy_algorithm,
                 )
             except Exception:
                 secret = Generatable(
                     modified=modified,
                     salt=raw_secret['salt'],
-                    algorithm=legacy_algorithm
+                    algorithm=legacy_algorithm,
                 )
 
             pts.add(label, secret)
 
         elif raw_secret['type'] == 'encrypted':
-            secret = Encrypted(
-                raw_secret['secret'],
-                modified=modified
-            )
+            secret = Encrypted(raw_secret['secret'], modified=modified)
             pts.add(label, secret)
 
         else:

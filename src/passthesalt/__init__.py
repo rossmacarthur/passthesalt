@@ -18,7 +18,7 @@ from passthesalt.core import (
     Login,
     Master,
     PassTheSalt,
-    Secret
+    Secret,
 )
 
 
@@ -32,5 +32,5 @@ __all__ = [
     'PassTheSalt',
     'Secret',
     'exceptions',
-    'remote'
+    'remote',
 ]
