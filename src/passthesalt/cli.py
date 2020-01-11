@@ -119,7 +119,7 @@ def handle_passthesalt_errors(f):
         try:
             return f(*args, **kwargs)
         except PassTheSaltError as e:
-            bail(e.message)
+            bail(str(e))
 
     return decorated_function
 
@@ -166,7 +166,7 @@ def ask_user_for_master(pts):
     Returns:
         str: the master password.
     """
-    for i in range(3):
+    for _ in range(3):
         master = prompt('Enter master password', hide_input=True)
 
         if pts.config.master.is_valid(master):
@@ -272,10 +272,10 @@ def cli(ctx, path):
     """
     \b
         ____                 ________        _____       ____
-       / __ \____  _________/_  __/ /_  ___ / ___/____ _/ / /_
-      / /_/ / __ `/ ___/ ___// / / __ \/ _ \\\\__ \/ __ `/ / __/
+       / __ \\____  _________/_  __/ /_  ___ / ___/____ _/ / /_
+      / /_/ / __ `/ ___/ ___// / / __ \\/ _ \\\\__ \\/ __ `/ / __/
      / ____/ /_/ (__  |__  )/ / / / / /  __/__/ / /_/ / / /_
-    /_/    \__,_/____/____//_/ /_/ /_/\___/____/\__,_/_/\__/
+    /_/    \\__,_/____/____//_/ /_/ /_/\\___/____/\\__,_/_/\\__/
 
     A deterministic password generation and password storage system.
     """

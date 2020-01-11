@@ -1,0 +1,10 @@
+black
+flake8 >=3.7.0
+flake8-bugbear
+flake8-docstrings
+flake8-isort
+flake8-quotes
+pep8-naming
+
+pytest >=3.6.0
+pytest-cov

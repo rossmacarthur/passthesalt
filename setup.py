@@ -55,21 +55,9 @@ entry_points = {
     'console_scripts': ['pts=passthesalt.cli:cli', 'passthesalt=passthesalt.cli:cli']
 }
 
-# Development requirements
-lint_requires = [
-    'black',
-    'flake8 >=3.7.0',
-    'flake8-docstrings',
-    'flake8-isort',
-    'flake8-quotes',
-    'pep8-naming',
-]
-test_requires = ['pytest >=3.6.0', 'pytest-cov']
-
 setup(
     # Options
     install_requires=install_requires,
-    extras_require={'dev.lint': lint_requires, 'dev.test': test_requires},
     python_requires='>=3.6',
     packages=find_packages('src'),
     entry_points=entry_points,
