@@ -6,7 +6,7 @@ import re
 from hmac import compare_digest
 
 from serde import Model as BaseModel
-from serde import fields
+from serde import fields, tags
 
 from passthesalt import __version__
 from passthesalt.crypto import decrypt, encrypt, generate, pbkdf2_hash
@@ -21,6 +21,33 @@ def major_version(v):
     return v.split('.')[0]
 
 
+MAJOR_VERSION = major_version(__version__)
+
+
+class Kind(tags.Internal):
+    """
+    A tag for `Secret` types.
+    """
+
+    def __init__(self):
+        """
+        Create a new `Kind`.
+        """
+        super().__init__(tag='kind', recurse=True)
+
+    def lookup_tag(self, variant):
+        """
+        Get the tag value for the given model variant.
+        """
+        segments = ()
+
+        while variant and variant is not self.__model__:
+            segments = (variant.__name__.lower(),) + segments
+            variant = variant.__parent__
+
+        return '.'.join(segments)
+
+
 class Secret(Model):
     """
     A base class for a secret.
@@ -31,25 +58,7 @@ class Secret(Model):
         Serde Meta class to allow Secret tagging.
         """
 
-        tag = 'kind'
-
-        def variants(self):
-            """
-            Return a list of Secret variants.
-            """
-            return self.model.__subclasses_recursed__()
-
-        def tag_for(self, variant):
-            """
-            Return the tag for the given variant.
-            """
-            segments = ()
-
-            while variant and not self.is_owner(variant):
-                segments = (variant.__name__.lower(),) + segments
-                variant = variant._parent
-
-            return '.'.join(segments)
+        tag = Kind()
 
     def __getattr__(self, item):
         """
@@ -75,7 +84,7 @@ class Secret(Model):
         """
         return (
             self._label,
-            self._meta.tag_for(self.__class__).split('.')[0],
+            Secret.__tag__.lookup_tag(self.__class__).split('.')[0],
             self.modified,
         )
 
@@ -309,7 +318,11 @@ class PassTheSalt(Model):
     config = fields.Optional(Config, default=Config)
     secrets = fields.Optional(fields.Dict(fields.Str, Secret), default=dict)
     secrets_encrypted = fields.Optional(fields.Str)
-    version = fields.Constant(major_version(__version__), normalizers=[major_version])
+    version = fields.Optional(
+        fields.Literal(MAJOR_VERSION),
+        default=MAJOR_VERSION,
+        normalizers=[major_version],
+    )
 
     def __init__(self, *args, **kwargs):
         """
@@ -319,19 +332,17 @@ class PassTheSalt(Model):
         self._master = None
 
     @classmethod
-    def from_dict(cls, d, strict=True):
+    def from_dict(cls, d):
         """
         Create a PassTheSalt object from a dictionary.
 
         Args:
             d (dict): the input dictionary.
-            strict (bool): if set to False then no exception will be raised when
-                unknown dictionary keys are present.
 
         Returns:
             PassTheSalt: a new PassTheSalt object.
         """
-        pts = super().from_dict(d, strict=strict)
+        pts = super().from_dict(d)
 
         # Add the current context to each Secret.
         for label, secret in pts.secrets.items():

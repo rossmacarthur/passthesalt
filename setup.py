@@ -44,12 +44,13 @@ metadata = get_metadata()
 
 # Primary requirements
 install_requires = [
-    'click >=7.0, <8.0',
-    'cryptography >=2.0.0, <3.0.0',
-    'pyperclip >=1.0.0, <2.0.0',
-    'requests >=2.0.0, <3.0.0',
-    'serde[ext,toml] >=0.6.1, <0.7.0',
-    'tabulate >=0.8.0, <0.9.0',
+    'click        ==7.*',
+    'cryptography ==2.*',
+    'pyperclip    ==1.*',
+    'requests     ==2.*',
+    'serde[ext]   ==0.7.*, >=0.7.3',
+    'tabulate     ==0.8.*',
+    'toml         ==0.10.*',
 ]
 entry_points = {
     'console_scripts': ['pts=passthesalt.cli:cli', 'passthesalt=passthesalt.cli:cli']
@@ -75,6 +76,7 @@ setup(
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: Implementation :: CPython',
     ],
     keywords='password manager pbkdf2',

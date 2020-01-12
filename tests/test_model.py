@@ -34,18 +34,6 @@ class TestDateTime:
 
 
 class TestModel:
-    def test_from_base64(self):
-        value = 'eyJtb2RpZmllZCI6ICIyMDE4LTEyLTI1IDAwOjAwOjAwIn0='
-        expected = Model(modified=datetime.datetime(year=2018, month=12, day=25))
-        assert Model.from_base64(value) == expected
-
-    def test_from_path(self):
-        example = Model(modified=datetime.datetime(year=2018, month=12, day=25))
-        with tempfile.NamedTemporaryFile() as t:
-            with open(t.name, 'w') as f:
-                f.write(example.to_json())
-            assert Model.from_path(t.name) == example
-
     def test_to_base64(self):
         example = Model(modified=datetime.datetime(year=2018, month=12, day=25))
         expected = 'eyJtb2RpZmllZCI6ICIyMDE4LTEyLTI1In0='
@@ -57,3 +45,15 @@ class TestModel:
             example.to_path(t.name, sort_keys=True)
             with open(t.name) as f:
                 assert f.read() == example.to_json(sort_keys=True)
+
+    def test_from_base64(self):
+        value = 'eyJtb2RpZmllZCI6ICIyMDE4LTEyLTI1IDAwOjAwOjAwIn0='
+        expected = Model(modified=datetime.datetime(year=2018, month=12, day=25))
+        assert Model.from_base64(value) == expected
+
+    def test_from_path(self):
+        example = Model(modified=datetime.datetime(year=2018, month=12, day=25))
+        with tempfile.NamedTemporaryFile() as t:
+            with open(t.name, 'w') as f:
+                f.write(example.to_json())
+            assert Model.from_path(t.name) == example
