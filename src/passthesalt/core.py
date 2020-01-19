@@ -29,12 +29,6 @@ class Kind(tags.Internal):
     A tag for `Secret` types.
     """
 
-    def __init__(self):
-        """
-        Create a new `Kind`.
-        """
-        super().__init__(tag='kind', recurse=True)
-
     def lookup_tag(self, variant):
         """
         Get the tag value for the given model variant.
@@ -58,7 +52,7 @@ class Secret(Model):
         Serde Meta class to allow Secret tagging.
         """
 
-        tag = Kind()
+        tag = Kind(tag='kind', recurse=True)
 
     def __getattr__(self, item):
         """
@@ -75,16 +69,24 @@ class Secret(Model):
 
         return self.__getattribute__(item)
 
+    @property
+    def kind(self):
+        """
+        The kind of secret this is.
+        """
+        return Secret.__tag__.lookup_tag(self.__class__).split('.')[0]
+
     def display(self):
         """
         A display tuple for tabulating this secret.
 
         Returns:
-            (str, str): the label and the kind.
+            (str, str, datetime.datetime): the label, the kind, and the date
+                and time it was modified.
         """
         return (
             self._label,
-            Secret.__tag__.lookup_tag(self.__class__).split('.')[0],
+            self.kind,
             self.modified,
         )
 

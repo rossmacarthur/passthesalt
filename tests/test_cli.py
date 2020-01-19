@@ -350,6 +350,12 @@ def test_pts_ls():
         )
         assert result.output == expected
 
+        result = runner.invoke(
+            cli, ['--path', 'passthesalt', 'ls', '-v', '--kind', 'encrypted']
+        )
+        expected = 'Label     Kind\n' '--------  ---------\n' 'Example2  encrypted\n'
+        assert result.output == expected
+
 
 def test_pts_rm():
     runner = CliRunner()

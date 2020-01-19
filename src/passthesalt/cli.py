@@ -216,7 +216,7 @@ def read_or_init_remote(path):
     return remote
 
 
-def pts_ls_(pts, label=None, kind=None, header=True, verbose=1):
+def _pts_ls(pts, label=None, kind=None, header=True, verbose=1):
     """
     List the secrets in a PassTheSalt store.
 
@@ -507,7 +507,7 @@ def pts_ls(pts, label, kind, header, verbose):
     """
     List the secrets.
     """
-    pts_ls_(pts, label=label, kind=kind, header=header, verbose=verbose)
+    _pts_ls(pts, label=label, kind=kind, header=header, verbose=verbose)
 
 
 @cli.command('rm')
@@ -663,14 +663,14 @@ def pts_diff(pts, path, kind, verbose):
 
     if diff_left.labels():
         echo('Local store has the following extra/modified secrets:')
-        pts_ls_(diff_left, kind=kind, header=False, verbose=verbose)
+        _pts_ls(diff_left, kind=kind, header=False, verbose=verbose)
 
     if diff_right.labels():
         if diff_left.labels():
             echo()
 
         echo('Remote store has the following extra/modified secrets:')
-        pts_ls_(diff_right, kind=kind, header=False, verbose=verbose)
+        _pts_ls(diff_right, kind=kind, header=False, verbose=verbose)
 
     if diff_left.labels() or diff_right.labels():
         exit(1)
