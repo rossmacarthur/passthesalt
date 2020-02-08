@@ -1,6 +1,7 @@
 import datetime
 import string
 import tempfile
+from unittest import mock
 
 import serde
 from pytest import raises
@@ -13,6 +14,7 @@ from passthesalt.core import (
     Master,
     PassTheSalt,
     Secret,
+    Totp,
 )
 from passthesalt.exceptions import ConfigurationError, ContextError, LabelError
 
@@ -154,6 +156,19 @@ class TestEncrypted:
         secret.add()
         secret.remove()
         assert pts.secrets_encrypted is None
+
+
+class TestTotp:
+    DT = datetime.datetime(year=2020, month=1, day=1)
+
+    @mock.patch('datetime.datetime')
+    def test_get(self, dt):
+        dt.now.return_value = self.DT
+        pts = PassTheSalt().with_master('password')
+        secret = Totp('abcdefgh')
+        secret.add_context('Example', pts)
+        secret.add()
+        assert secret.get() == '011755'
 
 
 class TestMaster:

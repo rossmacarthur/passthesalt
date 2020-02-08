@@ -19,6 +19,7 @@ from passthesalt.core import (
     Master,
     PassTheSalt,
     Secret,
+    Totp,
 )
 
 
@@ -31,6 +32,7 @@ __all__ = [
     'Master',
     'PassTheSalt',
     'Secret',
+    'Totp',
     'exceptions',
     'remote',
 ]

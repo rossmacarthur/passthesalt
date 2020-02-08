@@ -24,6 +24,7 @@ from passthesalt import (
     Master,
     PassTheSalt,
     Secret,
+    Totp,
 )
 from passthesalt.exceptions import LabelError, PassTheSaltError
 from passthesalt.remote import Stow
@@ -373,9 +374,16 @@ def pts_add(ctx, label, type, length, version, clipboard):
 @cli.command('encrypt')
 @click.argument('label', required=False)
 @click.option('--secret', '-s', help='The secret to store.')
+@click.option(
+    '--type',
+    '-t',
+    type=click.Choice(['raw', 'totp']),
+    default='raw',
+    help='The type of encrypted secret.',
+)
 @click.pass_obj
 @handle_passthesalt_errors
-def pts_encrypt(pts, label, secret):
+def pts_encrypt(pts, label, secret, type):
     """
     Encrypt a secret.
 
@@ -390,7 +398,12 @@ def pts_encrypt(pts, label, secret):
     if not secret:
         secret = prompt('Enter secret', confirmation_prompt=True, hide_input=True)
 
-    pts.add(label, Encrypted(secret))
+    if type == 'totp':
+        secret = Totp(secret)
+    else:
+        secret = Encrypted(secret)
+
+    pts.add(label, secret)
     pts.save()
     echo(f'Stored {label!r}!')
 
@@ -423,8 +436,8 @@ def pts_edit(ctx, label, clipboard):
     updated = False
 
     if isinstance(secret, Encrypted):
-        raw = secret.get()
-        new_raw = click.edit(raw)
+        raw = Encrypted.get(secret)
+        new_raw = click.edit(raw).strip('\r\n')
 
         if new_raw:
             if new_raw != raw:

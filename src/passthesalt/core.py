@@ -5,6 +5,7 @@ The core PassTheSalt module.
 import re
 from hmac import compare_digest
 
+import pyotp
 from serde import Model as BaseModel
 from serde import fields, tags
 
@@ -267,6 +268,18 @@ class Encrypted(Secret):
         del secrets[self._label]
         self._encrypt(secrets)
         super().remove()
+
+
+class Totp(Encrypted):
+    """
+    Represents a Time-based OTP.
+    """
+
+    def get(self):
+        """
+        Return the value for the TOTP at the current time.
+        """
+        return pyotp.TOTP(super().get()).now()
 
 
 class Master(BaseModel):
