@@ -142,8 +142,8 @@ class Algorithm(BaseModel):
     A secret generation algorithm.
     """
 
-    version = fields.Optional(fields.Int, default=1)
-    length = fields.Optional(fields.Int)
+    version: fields.Optional(fields.Int, default=1)
+    length: fields.Optional(fields.Int)
 
 
 class Generatable(Secret):
@@ -151,8 +151,8 @@ class Generatable(Secret):
     A generatable Secret.
     """
 
-    salt = fields.Str()
-    algorithm = fields.Optional(Algorithm, default=Algorithm)
+    salt: fields.Str()
+    algorithm: fields.Optional(Algorithm, default=Algorithm)
 
     def display(self):
         """
@@ -183,9 +183,9 @@ class Login(Generatable):
     An account login Secret.
     """
 
-    domain = fields.Domain()
-    username = fields.Str()
-    iteration = fields.Optional(fields.Int)
+    domain: fields.Domain()
+    username: fields.Str()
+    iteration: fields.Optional(fields.Int)
 
     @property
     def salt(self):
@@ -274,8 +274,8 @@ class Master(BaseModel):
     Represents and defines a master password.
     """
 
-    salt = fields.Str()
-    hash = fields.Str()
+    salt: fields.Str()
+    hash: fields.Str()
 
     def __init__(self, master):
         """
@@ -305,8 +305,8 @@ class Config(BaseModel):
     Represents and defines config for PassTheSalt.
     """
 
-    owner = fields.Optional(fields.Str)
-    master = fields.Optional(Master)
+    owner: fields.Optional(fields.Str)
+    master: fields.Optional(Master)
 
 
 class PassTheSalt(Model):
@@ -317,10 +317,10 @@ class PassTheSalt(Model):
     password storage system.
     """
 
-    config = fields.Optional(Config, default=Config)
-    secrets = fields.Optional(fields.Dict(fields.Str, Secret), default=dict)
-    secrets_encrypted = fields.Optional(fields.Str)
-    version = fields.Optional(
+    config: fields.Optional(Config, default=Config)
+    secrets: fields.Optional(fields.Dict(fields.Str, Secret), default=dict)
+    secrets_encrypted: fields.Optional(fields.Str)
+    version: fields.Optional(
         fields.Literal(MAJOR_VERSION),
         default=MAJOR_VERSION,
         normalizers=[major_version],

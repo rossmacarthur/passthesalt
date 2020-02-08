@@ -22,7 +22,7 @@ class Remote(Model):
     Configuration for a remote store.
     """
 
-    location = fields.Url()
+    location: fields.Url()
 
     def with_auth(self, auth):
         """
@@ -134,8 +134,8 @@ class Stow(Remote):
     See https://github.com/rossmacarthur/stow.
     """
 
-    token = fields.Optional(fields.Str)
-    token_location = fields.Url()
+    token: fields.Optional(fields.Str)
+    token_location: fields.Url()
 
     @property
     def headers(self):

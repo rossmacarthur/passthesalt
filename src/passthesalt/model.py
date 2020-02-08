@@ -71,7 +71,7 @@ class Model(BaseModel):
     A custom Model that has a modified Field.
     """
 
-    modified = fields.Optional(DateTime, default=datetime.datetime.utcnow)
+    modified: fields.Optional(DateTime, default=datetime.datetime.utcnow)
 
     def to_base64(self, **kwargs):
         """
