@@ -48,7 +48,7 @@ install_requires = [
     'cryptography ==2.*',
     'pyperclip    ==1.*',
     'requests     ==2.*',
-    'serde[ext]   ==0.7.*, >=0.7.3',
+    'serde[ext]   ==0.8.*',
     'tabulate     ==0.8.*',
     'toml         ==0.10.*',
 ]

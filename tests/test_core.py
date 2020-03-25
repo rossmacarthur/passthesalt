@@ -28,8 +28,9 @@ class TestSecret:
         assert Secret.from_dict(given) == expected
 
     def test_from_dict_invalid_kind(self):
-        with raises(serde.exceptions.DeserializationError):
+        with raises(serde.exceptions.ValidationError) as e:
             Secret.from_dict({'kind': 'unknown', 'modified': '2017-12-29'})
+        assert e.value.messages() == 'no variant found'
 
     def test_to_dict(self):
         given = SecretSub(modified=datetime.datetime(year=2017, month=12, day=29))

@@ -655,7 +655,7 @@ def pts_diff(pts, path, kind, verbose):
         remote = read_or_init_remote(path)
         other_pts = remote.get().with_path(pts.path)
         remote.to_path(path)
-    except serde.exceptions.DeserializationError:
+    except serde.exceptions.ValidationError:
         other_pts = PassTheSalt.from_path(path)
 
     diff_left = pts._diff(other_pts)
