@@ -2,6 +2,7 @@
 The core PassTheSalt module.
 """
 
+import base64
 import re
 from hmac import compare_digest
 
@@ -270,9 +271,29 @@ class Encrypted(Secret):
         super().remove()
 
 
-class Totp(Encrypted):
+class Otp(Encrypted):
     """
-    Represents a Time-based OTP.
+    Represents a One-Time Password generator.
+    """
+
+
+class Hotp(Otp):
+    """
+    Represents a HMAC-based OTP counter.
+    """
+
+    def get(self):
+        """
+        Return the value for the TOTP at the current time.
+        """
+        magic = super().get()
+        secret, count = magic.split('|')
+        return pyotp.HOTP(base64.b32encode(secret)).at(count)
+
+
+class Totp(Otp):
+    """
+    Represents a time-based OTP counter.
     """
 
     def get(self):
