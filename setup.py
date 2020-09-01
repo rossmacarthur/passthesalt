@@ -15,7 +15,7 @@ def get_metadata():
     """
     here = os.path.abspath(os.path.dirname(__file__))
     init_path = os.path.join(here, 'src', 'passthesalt', '__init__.py')
-    readme_path = os.path.join(here, 'README.rst')
+    readme_path = os.path.join(here, 'README.md')
 
     with io.open(init_path, encoding='utf-8') as f:
         about_text = f.read()
@@ -36,6 +36,7 @@ def get_metadata():
 
     with io.open(readme_path, encoding='utf-8') as f:
         metadata['long_description'] = f.read()
+        metadata['long_description_content_type'] = 'text/markdown'
 
     return metadata
 

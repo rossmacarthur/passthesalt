@@ -2,8 +2,9 @@
 
 [![PyPI](https://img.shields.io/pypi/v/passthesalt)](https://pypi.org/project/passthesalt/)
 ![PyPI: supported Python](https://img.shields.io/pypi/pyversions/passthesalt)
-[![Build status](https://img.shields.io/travis/rossmacarthur/passthesalt/master.svg)](https://travis-ci.org/rossmacarthur/passthesalt)
+[![Build status](https://img.shields.io/github/workflow/status/rossmacarthur/passthesalt/build)](https://github.com/rossmacarthur/passthesalt/actions?query=workflow%3Abuild)
 [![Code coverage](https://img.shields.io/codecov/c/github/rossmacarthur/passthesalt/master.svg)](https://codecov.io/gh/rossmacarthur/passthesalt)
+[![Code style](https://img.shields.io/badge/code%20style-black-101010.svg)](https://github.com/psf/black)
 
 A command line application for deterministic password generation and password
 storage.

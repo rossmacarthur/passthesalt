@@ -21,7 +21,6 @@ from passthesalt.core import (
     Secret,
 )
 
-
 __all__ = [
     'Algorithm',
     'Config',
