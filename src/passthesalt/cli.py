@@ -216,7 +216,7 @@ def read_or_init_remote(path):
     return remote
 
 
-def _pts_ls(pts, label=None, kind=None, header=True, verbose=1):
+def _pts_ls(pts, label=None, kind=None, only_labels=False):
     """
     List the secrets in a PassTheSalt store.
 
@@ -224,30 +224,25 @@ def _pts_ls(pts, label=None, kind=None, header=True, verbose=1):
         pts (PassTheSalt): the PassTheSalt store.
         label (str): a label to filter on.
         kind (str): the kind to filter on (generatable or encrypted)
-        header (bool): whether to print the table header.
-        verbose (int): the verbosity count that determines how much information
-            for each secret is displayed.
+        only_labels (bool): whether to only display the labels.
     """
     labels = pts.labels(pattern=label)
 
     if not labels:
         echo('No stored secrets', err=True)
     else:
-        n = verbose + 1
+        n = 1 if only_labels else None
         secrets = []
 
         for label in sorted(labels):
             secret = pts.get(label)
-
             if not kind or secret.kind == kind:
                 secrets.append(secret.display()[:n])
 
-        if header:
+        if not only_labels:
             kwargs = {'headers': ('Label', 'Kind', 'Modified', 'Salt')[:n]}
         else:
-            kwargs = {
-                'tablefmt': 'plain',
-            }
+            kwargs = {'tablefmt': 'plain'}
 
         echo(tabulate(secrets, **kwargs))
 
@@ -495,19 +490,13 @@ def pts_get(pts, label, clipboard):
     type=click.Choice(['encrypted', 'generatable']),
     help='Filter by type of secret.',
 )
-@click.option(
-    '--header/--no-header', default=True, help='Whether to display the table header.'
-)
-@click.option(
-    '--verbose', '-v', count=True, help='Increase amount information displayed.'
-)
 @click.pass_obj
 @handle_passthesalt_errors
-def pts_ls(pts, label, kind, header, verbose):
+def pts_ls(pts, label, kind):
     """
     List the secrets.
     """
-    _pts_ls(pts, label=label, kind=kind, header=header, verbose=verbose)
+    _pts_ls(pts, label=label, kind=kind)
 
 
 @cli.command('rm')
@@ -642,12 +631,9 @@ def pts_pull(pts, path, force):
     type=click.Choice(['encrypted', 'generatable']),
     help='Filter by type of secret.',
 )
-@click.option(
-    '--verbose', '-v', count=True, help='Increase amount information displayed.'
-)
 @click.pass_obj
 @handle_passthesalt_errors
-def pts_diff(pts, path, kind, verbose):
+def pts_diff(pts, path, kind):
     """
     Compare two stores.
     """
@@ -663,14 +649,14 @@ def pts_diff(pts, path, kind, verbose):
 
     if diff_left.labels():
         echo('Local store has the following extra/modified secrets:')
-        _pts_ls(diff_left, kind=kind, header=False, verbose=verbose)
+        _pts_ls(diff_left, kind=kind, only_labels=True)
 
     if diff_right.labels():
         if diff_left.labels():
             echo()
 
         echo('Remote store has the following extra/modified secrets:')
-        _pts_ls(diff_right, kind=kind, header=False, verbose=verbose)
+        _pts_ls(diff_right, kind=kind, only_labels=True)
 
     if diff_left.labels() or diff_right.labels():
         exit(1)

@@ -341,19 +341,27 @@ def test_pts_ls():
         pts.add('Example1', Generatable(salt='salt'))
         pts.add('Example2', Encrypted('verysecret'))
         pts.to_path('passthesalt')
-        result = runner.invoke(cli, ['--path', 'passthesalt', 'ls', '-v'])
+
+        datetime_1 = pts.get('Example1').modified.strftime('%Y-%m-%d %H:%M:%S.%f')
+        datetime_2 = pts.get('Example2').modified.strftime('%Y-%m-%d %H:%M:%S.%f')
+
+        result = runner.invoke(cli, ['--path', 'passthesalt', 'ls'])
         expected = (
-            'Label     Kind\n'
-            '--------  -----------\n'
-            'Example1  generatable\n'
-            'Example2  encrypted\n'
+            'Label     Kind         Modified                    Salt\n'
+            '--------  -----------  --------------------------  ------\n'
+            f'Example1  generatable  {datetime_1}  salt\n'
+            f'Example2  encrypted    {datetime_2}\n'
         )
         assert result.output == expected
 
         result = runner.invoke(
-            cli, ['--path', 'passthesalt', 'ls', '-v', '--kind', 'encrypted']
+            cli, ['--path', 'passthesalt', 'ls', '--kind', 'encrypted']
         )
-        expected = 'Label     Kind\n' '--------  ---------\n' 'Example2  encrypted\n'
+        expected = (
+            'Label     Kind       Modified\n'
+            '--------  ---------  --------------------------\n'
+            f'Example2  encrypted  {datetime_2}\n'
+        )
         assert result.output == expected
 
 
