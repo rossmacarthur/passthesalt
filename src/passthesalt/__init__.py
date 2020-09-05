@@ -3,7 +3,7 @@ PassTheSalt is a deterministic password generation and password storage system.
 """
 
 __title__ = 'passthesalt'
-__version__ = '3.2.1'
+__version__ = '3.2.2'
 __url__ = 'https://github.com/rossmacarthur/passthesalt'
 __author__ = 'Ross MacArthur'
 __author_email__ = 'ross@macarthur.io'
