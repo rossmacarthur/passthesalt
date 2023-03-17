@@ -46,7 +46,8 @@ metadata = get_metadata()
 # Primary requirements
 install_requires = [
     'click        ==7.*',
-    'cryptography ==2.*',
+    'cryptography ==36.*',
+    'flask        ==2.*',
     'pyperclip    ==1.*',
     'requests     ==2.*',
     'serde[ext]   ==0.8.*',
